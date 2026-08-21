@@ -288,7 +288,7 @@ AI-Financial-Risk-Intelligence/
 # 🚀 Installation
 
 ```bash
-git clone https://github.com/yourusername/AI-Financial-Risk-Intelligence.git
+git clone https://github.com/Abhishek4209/AI-Financial-Risk-Intelligence.git
 
 cd AI-Financial-Risk-Intelligence
 

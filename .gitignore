@@ -1,0 +1,7 @@
+# Local datasets and generated data
+data/
+*.csv
+*.csv.gz
+
+# Local model artifacts
+models/*.joblib

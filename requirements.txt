@@ -1,0 +1,179 @@
+# ================================
+# AI Financial Risk Intelligence Platform
+# ================================
+
+# ================================
+# Web Framework
+# ================================
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+pydantic-settings
+
+# ================================
+# LangChain Ecosystem
+# ================================
+langchain
+langchain-community
+langchain-core
+langchain-openai
+langchain-huggingface
+langchain-pinecone
+langchain-text-splitters
+
+# ================================
+# LlamaIndex
+# ================================
+llama-index
+llama-index-vector-stores-pinecone
+llama-index-graph-stores-neo4j
+
+# ================================
+# Multi-Agent
+# ================================
+langgraph
+
+# ================================
+# LLM APIs
+# ================================
+openai
+tiktoken
+
+# ================================
+# Embedding Models
+# ================================
+sentence-transformers
+transformers
+torch
+accelerate
+
+# ================================
+# Vector Databases
+# ================================
+pinecone
+chromadb
+pymilvus
+faiss-cpu
+
+# ================================
+# Graph Database
+# ================================
+neo4j
+
+# ================================
+# Database
+# ================================
+sqlalchemy
+psycopg2-binary
+redis
+
+# ================================
+# Data Processing
+# ================================
+pandas
+numpy
+polars
+pyarrow
+
+# ================================
+# Machine Learning
+# ================================
+scikit-learn
+xgboost
+lightgbm
+catboost
+
+# ================================
+# Explainable AI
+# ================================
+shap
+
+# ================================
+# NLP
+# ================================
+spacy
+nltk
+
+# ================================
+# Document Processing
+# ================================
+pypdf
+pdfplumber
+pymupdf
+python-docx
+openpyxl
+unstructured
+pytesseract
+Pillow
+
+# ================================
+# Retrieval
+# ================================
+rank-bm25
+cohere
+
+# ================================
+# Evaluation
+# ================================
+ragas
+datasets
+evaluate
+
+# ================================
+# Visualization
+# ================================
+matplotlib
+plotly
+
+# ================================
+# API
+# ================================
+httpx
+requests
+
+# ================================
+# Authentication
+# ================================
+python-jose[cryptography]
+passlib[bcrypt]
+
+# ================================
+# Environment Variables
+# ================================
+python-dotenv
+
+# ================================
+# Logging
+# ================================
+loguru
+
+# ================================
+# Monitoring
+# ================================
+mlflow
+prometheus-client
+
+# ================================
+# Background Tasks
+# ================================
+celery
+
+# ================================
+# Utilities
+# ================================
+tqdm
+pyyaml
+orjson
+joblib
+
+# ================================
+# Development
+# ================================
+pytest
+pytest-asyncio
+black
+isort
+flake8
+mypy
+pre-commit
