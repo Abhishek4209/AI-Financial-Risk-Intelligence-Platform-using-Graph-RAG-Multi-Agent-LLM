@@ -1,0 +1,17 @@
+{
+  "name": "Ledgerline Risk Intelligence",
+  "short_name": "Ledgerline",
+  "description": "Financial risk analysis and portfolio intelligence workspace.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f6f1",
+  "theme_color": "#202b27",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

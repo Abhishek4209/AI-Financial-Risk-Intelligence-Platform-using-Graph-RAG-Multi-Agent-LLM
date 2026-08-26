@@ -1,0 +1,5 @@
+import { ArrowUpRight, FileSearch, Upload } from 'lucide-react'
+
+export default function Documents() {
+  return <section className="page-content"><div className="page-heading"><div><p className="eyebrow">WORKSPACE / KNOWLEDGE</p><h1>Documents</h1><p className="heading-copy">Search the evidence behind every risk decision.</p></div><button className="primary-button"><Upload size={16} />Upload document</button></div><div className="panel"><div className="panel-heading"><div><h2>Document library</h2><p>Reports, statements, and regulatory material</p></div></div><div className="activity-list"><div className="activity-item"><span className="activity-icon activity-icon--purple"><FileSearch size={16} /></span><p><strong>Annual risk reports</strong><span>12 indexed documents</span></p><button className="text-button">Browse <ArrowUpRight size={15} /></button></div><div className="activity-item"><span className="activity-icon activity-icon--orange"><FileSearch size={16} /></span><p><strong>Regulatory guidance</strong><span>28 indexed documents</span></p><button className="text-button">Browse <ArrowUpRight size={15} /></button></div></div></div></section>
+}
