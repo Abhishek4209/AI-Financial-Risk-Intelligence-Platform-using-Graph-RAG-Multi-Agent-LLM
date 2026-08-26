@@ -1,0 +1,16 @@
+name: financial-risk-intelligence
+
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python=3.11
+  - pip
+  - build
+  - setuptools
+  - wheel
+  - libpq
+  - tesseract
+  - pip:
+      - -r requirements.txt

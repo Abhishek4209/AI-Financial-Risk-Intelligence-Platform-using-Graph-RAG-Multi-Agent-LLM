@@ -2,150 +2,289 @@
 
 ## Prerequisites
 
-- Docker Desktop with Docker Compose v2 for local containers
-- Python 3.11 or newer for local backend development
-- Node.js 20 or newer and npm for frontend development
-- Access credentials for the selected LLM, embedding, vector database, and external data providers
+- Docker Desktop with Docker Compose v2
+- Python 3.11 or newer
+- Conda, optional for environment management
+- Node.js 20 or newer and npm
+- Credentials for the selected LLM, embedding, vector database, and external data providers
 
 ## Environment Configuration
 
-Create a local `.env` file beside `docker-compose.yml`. Do not commit it.
+Create `.env` beside `docker-compose.yml`. Do not commit it.
 
 ```dotenv
+APP_ENV=development
+
 POSTGRES_DB=financial_risk
 POSTGRES_USER=risk_user
-POSTGRES_PASSWORD=replace-with-a-local-password
+POSTGRES_PASSWORD=replace-with-a-secure-password
 POSTGRES_PORT=5432
+
 REDIS_PORT=6379
-NEO4J_AUTH=neo4j/replace-with-a-local-password
-NEO4J_PASSWORD=replace-with-a-local-password
+
+NEO4J_PASSWORD=replace-with-a-secure-password
 NEO4J_HTTP_PORT=7474
 NEO4J_BOLT_PORT=7687
+
 BACKEND_PORT=8000
+
+VECTOR_DB_PROVIDER=chroma
+LLM_PROVIDER=
+LLM_MODEL=
+LLM_API_KEY=
 ```
 
-Use strong, unique values outside local development. LLM and vector-store credentials should be added through a secret manager or CI environment, not stored in this file.
+The Compose configuration builds the internal database URLs automatically. The `.env` file must not contain production secrets in a committed file.
 
-## Local Infrastructure
+## Start Infrastructure and Backend
 
-Start PostgreSQL, Redis, and Neo4j:
+Start all Compose services:
 
-```bash
-docker compose up -d
+```powershell
+docker compose up -d --build
 ```
 
-Inspect service status and logs:
+This starts:
 
-```bash
+- PostgreSQL
+- Redis
+- Neo4j
+- FastAPI backend
+
+Inspect service status:
+
+```powershell
 docker compose ps
+```
+
+View logs:
+
+```powershell
+docker compose logs -f backend
 docker compose logs -f postgres redis neo4j
 ```
 
-The Compose file persists data in named volumes: `postgres_data`, `redis_data`, `neo4j_data`, and `neo4j_logs`.
+The API is available at:
 
-Stop the services without deleting data:
+- API: `http://localhost:8000`
+- Swagger UI: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+- Neo4j Browser: `http://localhost:7474`
 
-```bash
+## Stop Services
+
+Stop services without deleting data:
+
+```powershell
 docker compose down
 ```
 
-Delete local data only when resetting the development environment:
+Delete development data only when resetting the environment:
 
-```bash
+```powershell
 docker compose down -v
 ```
 
+Persistent named volumes:
+
+- `postgres_data`
+- `redis_data`
+- `neo4j_data`
+- `neo4j_logs`
+
 ## Backend Container
 
-The backend is behind the `app` Compose profile because the API entrypoint is still being implemented. Once `src.main:app` exists, build and start it with:
+The backend image is built from the repository `Dockerfile`.
 
-```bash
-docker compose --profile app up --build
-```
+The container:
 
-The image is built from `Dockerfile`, listens on port `8000`, and receives internal service names through `DATABASE_URL`, `REDIS_URL`, and `NEO4J_URI`.
+- Uses Python 3.11
+- Installs dependencies from `requirements.txt`
+- Installs PostgreSQL, OCR, and computer-vision system libraries
+- Exposes port `8000`
+- Runs `src.main:app`
+- Mounts source, configuration, data, and model directories during development
 
-For direct local development:
+The backend depends on healthy PostgreSQL, Redis, and Neo4j services.
 
-```bash
+## Local Backend Development
+
+Using a virtual environment:
+
+```powershell
 python -m venv .venv
-# Windows PowerShell
-.venv\Scripts\Activate.ps1
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
-uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
+$env:PYTHONPATH = (Get-Location).Path
+uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-## Frontend
+Using Conda:
 
-Install and run the Vite frontend:
+```powershell
+conda env create -f environment.yml
+conda activate financial-risk-intelligence
+$env:PYTHONPATH = (Get-Location).Path
+uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+```
 
-```bash
+## Frontend Development
+
+Install and start the React frontend:
+
+```powershell
 cd frontend
 npm install
-npm run dev
-```
-
-Set `VITE_API_URL` before starting the frontend when the API is not on the default host:
-
-```bash
-# Windows PowerShell
 $env:VITE_API_URL = "http://localhost:8000"
 npm run dev
 ```
 
-Build production assets with `npm run build`; serve the generated `frontend/dist/` directory through a static web server or reverse proxy.
+Build production assets:
+
+```powershell
+npm run build
+```
+
+Serve the generated `frontend/dist/` directory through a static web server or reverse proxy.
+
+The frontend must communicate with FastAPI and must not contain ML, database, or RAG business logic.
+
+## Data and Model Mounts
+
+During local Compose development:
+
+- `./src` is mounted at `/app/src`
+- `./configs` is mounted at `/app/configs`
+- `./data` is mounted at `/app/data`
+- `./models` is mounted at `/app/models`
+
+Keep raw datasets in `data/raw/` immutable. Do not commit sensitive customer or financial data.
+
+## Database Initialization
+
+PostgreSQL and Neo4j data persist in Docker volumes.
+
+Neo4j credentials are initialized when the volume is created. Changing `NEO4J_PASSWORD` later does not change an existing database password.
+
+To reset local databases:
+
+```powershell
+docker compose down -v
+docker compose up -d --build
+```
+
+Use this only when local data can be deleted.
 
 ## CI/CD
 
-The workflow in `.github/workflows/ci.yml` runs for pushes and pull requests targeting `main` or `master`. It currently:
+The CI workflow should:
 
-1. Installs Python 3.11 dependencies.
-2. Compiles Python sources.
-3. Parses the Compose and application YAML files.
-4. Runs the test suite.
-5. Builds the backend Docker image without pushing it.
+1. Install Python dependencies.
+2. Compile Python sources.
+3. Validate YAML and Compose configuration.
+4. Run unit and integration tests.
+5. Run linting and security checks.
+6. Build the backend Docker image.
+7. Deploy only after protected-environment approval.
 
-Before enabling deployment, add protected environment secrets, image registry authentication, database migration steps, and a smoke test against a deployed health endpoint.
+Production deployment should additionally include:
+
+- Database migrations
+- Registry authentication
+- Secret injection
+- Deployment smoke tests
+- Health and readiness checks
 
 ## Production Recommendations
 
-- Use a managed PostgreSQL, Redis, Neo4j, and vector database where possible.
-- Store uploaded documents and model artifacts in durable object storage.
-- Put the API and frontend behind TLS termination and a reverse proxy.
-- Restrict database ports to private networks; do not expose them publicly.
-- Pin base image and dependency versions after a compatibility review.
-- Run the API as a non-root user and set CPU, memory, and request-size limits.
-- Configure backups, retention, audit logging, secret rotation, and alerting before handling regulated data.
-- Deploy separate worker processes for Celery tasks and scale them independently from the API.
-- Add readiness probes for dependencies and liveness probes for the API process.
+- Use managed PostgreSQL, Redis, Neo4j, and vector infrastructure where practical.
+- Store documents and model artifacts in durable object storage.
+- Use HTTPS behind a reverse proxy.
+- Keep database ports private.
+- Pin image and dependency versions.
+- Run the backend as a non-root user.
+- Set CPU, memory, upload-size, and request-timeout limits.
+- Configure backups, retention, audit logging, and secret rotation.
+- Run Celery workers separately for ingestion, embedding, inference, and report generation.
+- Add monitoring for latency, failures, model drift, and retrieval quality.
+- Require human review for lending, fraud, and compliance decisions.
 
 ## Kubernetes Direction
 
-The `deployment/kubernetes/` directory is reserved for manifests. A production deployment should include separate workloads for the API, frontend, Celery workers, and scheduled ingestion tasks, with Services, Ingress, ConfigMaps, Secrets, resource requests, probes, and horizontal scaling policies.
+The `deployment/kubernetes/` directory is reserved for production manifests.
+
+A production deployment should include separate workloads for:
+
+- FastAPI API
+- React frontend
+- Celery workers
+- Scheduled ingestion jobs
+
+Include Services, Ingress, ConfigMaps, Secrets, resource limits, readiness probes, liveness probes, and autoscaling policies.
 
 ## Troubleshooting
 
 ### Port already in use
 
-Change the host-side port in `.env`, for example `POSTGRES_PORT=55432`, then restart Compose.
+Change the host-side port in `.env`, for example:
+
+```dotenv
+POSTGRES_PORT=55432
+```
+
+Then restart Compose:
+
+```powershell
+docker compose down
+docker compose up -d --build
+```
 
 ### Neo4j authentication failure
 
-Ensure `NEO4J_AUTH` is set as `neo4j/password` on the first volume initialization. Changing it after the database volume exists does not reset the existing password.
+Verify that `NEO4J_PASSWORD` is correct. If the volume was already initialized, reset local data:
 
-### Backend image starts but API is unavailable
-
-Confirm that the application exports `app` from the module targeted by the Dockerfile command and inspect logs:
-
-```bash
-docker compose --profile app logs -f backend
+```powershell
+docker compose down -v
+docker compose up -d --build
 ```
 
-### Resetting a failed local database
+### Backend is unavailable
 
-Stop Compose and remove volumes only if the local data can be discarded:
+Check the backend logs:
 
-```bash
+```powershell
+docker compose logs -f backend
+```
+
+Confirm that the application exports `app` from `src.main`:
+
+```python
+from fastapi import FastAPI
+
+app = FastAPI()
+```
+
+Check the health endpoint:
+
+```powershell
+Invoke-WebRequest http://localhost:8000/health
+```
+
+### Dependency is unhealthy
+
+Inspect service status and logs:
+
+```powershell
+docker compose ps
+docker compose logs postgres redis neo4j
+```
+
+### Complete local reset
+
+Only use this when all local database data can be discarded:
+
+```powershell
 docker compose down -v
-docker compose up -d
+docker compose up -d --build
 ```
