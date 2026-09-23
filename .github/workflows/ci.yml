@@ -58,15 +58,23 @@ jobs:
       - name: Validate Docker Compose configuration
         run: docker compose config
 
-      - name: Run tests
+      - name: Run tests with coverage
         run: |
-          pytest tests -q
+          pytest tests --cov=src --cov-report=xml:coverage.xml --cov-report=term-missing -q
           status=$?
           if [ "$status" -eq 5 ]; then
             echo "No tests were collected; continuing."
             exit 0
           fi
           exit "$status"
+
+      - name: SonarQube Scan
+        if: ${{ secrets.SONAR_TOKEN != '' && secrets.SONAR_HOST_URL != '' }}
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
   frontend-checks:
     name: Frontend checks
