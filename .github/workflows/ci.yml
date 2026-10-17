@@ -190,6 +190,9 @@ jobs:
     needs: [python-checks, frontend-checks, docker-build]
     if: always()
     timeout-minutes: 5
+    env:
+      MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+      MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
 
     steps:
       - name: Collect status of every job and step
