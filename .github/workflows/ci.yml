@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -147,7 +148,9 @@ jobs:
       - name: Install frontend dependencies
         if: hashFiles('frontend/package.json') != ''
         working-directory: frontend
-        run: npm install
+        run: |
+          npm cache clean --force
+          npm install --legacy-peer-deps --no-audit --no-fund
 
       - name: Build frontend
         if: hashFiles('frontend/package.json') != ''
@@ -180,3 +183,64 @@ jobs:
           file: Dockerfile
           push: false
           tags: financial-risk-backend:ci
+
+  email-notification:
+    name: Email workflow and step status report
+    runs-on: ubuntu-latest
+    needs: [python-checks, frontend-checks, docker-build]
+    if: always()
+    timeout-minutes: 5
+
+    steps:
+      - name: Collect status of every job and step
+        id: report
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const response = await github.rest.actions.listJobsForWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.runId,
+              per_page: 100
+            });
+            const allSucceeded = '${{ needs.python-checks.result }}' === 'success' && '${{ needs.frontend-checks.result }}' === 'success' && '${{ needs.docker-build.result }}' === 'success';
+            const lines = [
+              'Workflow: ' + context.workflow,
+              'Repository: ' + context.repo.owner + '/' + context.repo.repo,
+              'Run: ' + context.serverUrl + '/' + context.repo.owner + '/' + context.repo.repo + '/actions/runs/' + context.runId,
+              'Overall result: ' + (allSucceeded ? 'SUCCESS' : 'FAILURE OR SKIPPED JOB'),
+              '',
+              'JOB AND STEP RESULTS'
+            ];
+            for (const job of response.data.jobs) {
+              lines.push('', '[' + String(job.conclusion || job.status).toUpperCase() + '] ' + job.name);
+              for (const step of (job.steps || [])) {
+                lines.push('  - [' + String(step.conclusion || step.status || 'unknown').toUpperCase() + '] ' + step.name);
+              }
+            }
+            core.setOutput('body', lines.join('\n'));
+
+      - name: Email report to Abhishek
+        if: ${{ env.MAIL_USERNAME != '' && env.MAIL_PASSWORD != '' }}
+        uses: dawidd6/action-send-mail@v3
+        env:
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "GitHub Actions ${{ needs.python-checks.result == 'success' && needs.frontend-checks.result == 'success' && needs.docker-build.result == 'success' && 'SUCCESS' || 'FAILURE / SKIPPED' }}: ${{ github.workflow }} #${{ github.run_number }}"
+          to: abhishekupadhyay9336@gmail.com
+          from: ${{ secrets.MAIL_USERNAME }}
+          body: ${{ steps.report.outputs.body }}
+
+      - name: Explain missing email configuration
+        if: ${{ env.MAIL_USERNAME == '' || env.MAIL_PASSWORD == '' }}
+        env:
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+        run: |
+          echo "::warning::Email was not sent. Add repository Actions secrets MAIL_USERNAME and MAIL_PASSWORD to enable email reports."
