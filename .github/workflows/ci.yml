@@ -131,11 +131,18 @@ jobs:
       - name: Show Qlty coverage dashboard URL
         if: always()
         run: |
+          QLTY_URL="https://qlty.sh/gh/Abhishek4209/projects/AI-Financial-Risk-Intelligence-Platform-using-Graph-RAG-Multi-Agent-LLM"
           echo "============================================================"
-          echo "Qlty Coverage Dashboard:"
-          echo "https://qlty.sh/gh/Abhishek4209/projects/AI-Financial-Risk-Intelligence-Platform-using-Graph-RAG-Multi-Agent-LLM"
+          echo "Qlty Coverage Dashboard: $QLTY_URL"
           echo "============================================================"
-          echo "::notice title=Qlty Coverage Dashboard::https://qlty.sh/gh/Abhishek4209/projects/AI-Financial-Risk-Intelligence-Platform-using-Graph-RAG-Multi-Agent-LLM"
+          echo "::notice title=Qlty Coverage Dashboard::$QLTY_URL"
+          {
+            echo "## Qlty Coverage Dashboard"
+            echo ""
+            echo "[Open project coverage and quality report]($QLTY_URL)"
+            echo ""
+            echo "This link is shown even if an earlier test or coverage step fails."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   frontend-checks:
     name: Frontend checks
@@ -229,6 +236,7 @@ jobs:
               'Event: ' + context.eventName,
               'Commit: ' + context.sha,
               'Run URL: ' + context.serverUrl + '/' + context.repo.owner + '/' + context.repo.repo + '/actions/runs/' + context.runId,
+              'Qlty Coverage Dashboard: https://qlty.sh/gh/Abhishek4209/projects/AI-Financial-Risk-Intelligence-Platform-using-Graph-RAG-Multi-Agent-LLM',
               'Overall result: ' + (allSucceeded ? 'SUCCESS' : 'FAILURE OR SKIPPED JOB'),
               '',
               'JOB AND STEP RESULTS'
@@ -246,6 +254,7 @@ jobs:
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+          NOTIFICATION_EMAIL: ${{ secrets.GITHUB_NOTIFICATION_EMAIL }}
           REPORT_BODY: ${{ steps.report.outputs.body }}
           REPORT_STATUS: ${{ steps.report.outputs.status }}
         run: |
@@ -257,10 +266,14 @@ jobs:
             echo "::error::RESEND_FROM_EMAIL is missing. Set it to an email address on a domain verified in Resend."
             exit 1
           fi
+          if [ -z "$NOTIFICATION_EMAIL" ]; then
+            echo "::error::GITHUB_NOTIFICATION_EMAIL is missing. Set this Actions secret to the email address registered with your GitHub account."
+            exit 1
+          fi
 
           payload="$(jq -n \
             --arg from "$RESEND_FROM_EMAIL" \
-            --arg to "abhishekupadhyay9336@gmail.com" \
+            --arg to "$NOTIFICATION_EMAIL" \
             --arg subject "GitHub Actions $REPORT_STATUS: ${GITHUB_WORKFLOW} #${GITHUB_RUN_NUMBER}" \
             --arg text "$REPORT_BODY" \
             '{from: $from, to: [$to], subject: $subject, text: $text}')"
