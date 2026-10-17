@@ -19,6 +19,9 @@ jobs:
     name: Python checks and Qlty coverage
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      # Ensure imports such as "from src.services import ..." resolve in CI.
+      PYTHONPATH: ${{ github.workspace }}
 
     steps:
       - name: Check out repository
@@ -70,7 +73,7 @@ jobs:
 
       - name: Run tests and generate coverage
         run: |
-          pytest tests \
+          python -m pytest tests \
             --cov=src \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml \
