@@ -18,7 +18,7 @@ concurrency:
 jobs:
   python-checks:
     name: Python checks and Qlty coverage
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       # Ensure imports such as "from src.services import ..." resolve in CI.
@@ -146,7 +146,7 @@ jobs:
 
   frontend-checks:
     name: Frontend checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
 
     steps:
@@ -175,7 +175,7 @@ jobs:
 
   docker-build:
     name: Docker build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     needs: [python-checks, frontend-checks]
     if: >-
@@ -202,7 +202,7 @@ jobs:
 
   email-notification:
     name: Email workflow and step status report
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [python-checks, frontend-checks, docker-build]
     if: always()
     timeout-minutes: 5
@@ -213,7 +213,7 @@ jobs:
     steps:
       - name: Collect status of every job and step
         id: report
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const response = await github.rest.actions.listJobsForWorkflowRun({
