@@ -254,7 +254,7 @@ jobs:
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
-          NOTIFICATION_EMAIL: ${{ secrets.GITHUB_NOTIFICATION_EMAIL }}
+          NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
           REPORT_BODY: ${{ steps.report.outputs.body }}
           REPORT_STATUS: ${{ steps.report.outputs.status }}
         run: |
@@ -267,7 +267,7 @@ jobs:
             exit 1
           fi
           if [ -z "$NOTIFICATION_EMAIL" ]; then
-            echo "::error::GITHUB_NOTIFICATION_EMAIL is missing. Set this Actions secret to the email address registered with your GitHub account."
+            echo "::error::NOTIFICATION_EMAIL is missing. Set this Actions secret to the email address registered with your GitHub account."
             exit 1
           fi
 
