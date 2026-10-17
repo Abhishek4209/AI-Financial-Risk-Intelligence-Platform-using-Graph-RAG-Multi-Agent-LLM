@@ -190,9 +190,9 @@ jobs:
     needs: [python-checks, frontend-checks, docker-build]
     if: always()
     timeout-minutes: 5
-    env:
-      MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
-      MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+    permissions:
+      actions: read
+      contents: read
 
     steps:
       - name: Collect status of every job and step
@@ -206,11 +206,20 @@ jobs:
               run_id: context.runId,
               per_page: 100
             });
-            const allSucceeded = '${{ needs.python-checks.result }}' === 'success' && '${{ needs.frontend-checks.result }}' === 'success' && '${{ needs.docker-build.result }}' === 'success';
+            const actorResponse = await github.rest.users.getByUsername({ username: context.actor });
+            const allSucceeded =
+              '${{ needs.python-checks.result }}' === 'success' &&
+              '${{ needs.frontend-checks.result }}' === 'success' &&
+              '${{ needs.docker-build.result }}' === 'success';
             const lines = [
               'Workflow: ' + context.workflow,
               'Repository: ' + context.repo.owner + '/' + context.repo.repo,
-              'Run: ' + context.serverUrl + '/' + context.repo.owner + '/' + context.repo.repo + '/actions/runs/' + context.runId,
+              'Run number: #' + context.runNumber,
+              'Triggered by GitHub account: ' + context.actor,
+              'GitHub user ID: ' + actorResponse.data.id,
+              'Event: ' + context.eventName,
+              'Commit: ' + context.sha,
+              'Run URL: ' + context.serverUrl + '/' + context.repo.owner + '/' + context.repo.repo + '/actions/runs/' + context.runId,
               'Overall result: ' + (allSucceeded ? 'SUCCESS' : 'FAILURE OR SKIPPED JOB'),
               '',
               'JOB AND STEP RESULTS'
@@ -222,28 +231,31 @@ jobs:
               }
             }
             core.setOutput('body', lines.join('\n'));
+            core.setOutput('status', allSucceeded ? 'SUCCESS' : 'FAILURE / SKIPPED');
 
-      - name: Email report to Abhishek
-        if: ${{ env.MAIL_USERNAME != '' && env.MAIL_PASSWORD != '' }}
-        uses: dawidd6/action-send-mail@v3
+      - name: Send custom status email using Resend API
         env:
-          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
-          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
-        with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          secure: true
-          username: ${{ secrets.MAIL_USERNAME }}
-          password: ${{ secrets.MAIL_PASSWORD }}
-          subject: "GitHub Actions ${{ needs.python-checks.result == 'success' && needs.frontend-checks.result == 'success' && needs.docker-build.result == 'success' && 'SUCCESS' || 'FAILURE / SKIPPED' }}: ${{ github.workflow }} #${{ github.run_number }}"
-          to: abhishekupadhyay9336@gmail.com
-          from: ${{ secrets.MAIL_USERNAME }}
-          body: ${{ steps.report.outputs.body }}
-
-      - name: Explain missing email configuration
-        if: ${{ env.MAIL_USERNAME == '' || env.MAIL_PASSWORD == '' }}
-        env:
-          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
-          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          REPORT_BODY: ${{ steps.report.outputs.body }}
+          REPORT_STATUS: ${{ steps.report.outputs.status }}
         run: |
-          echo "::warning::Email was not sent. Add repository Actions secrets MAIL_USERNAME and MAIL_PASSWORD to enable email reports."
+          if [ -z "$RESEND_API_KEY" ]; then
+            echo "::error::RESEND_API_KEY is missing. Add it in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+          payload="$(jq -n \
+            --arg from "AI Financial Risk CI <onboarding@resend.dev>" \
+            --arg to "abhishekupadhyay9336@gmail.com" \
+            --arg subject "GitHub Actions $REPORT_STATUS: ${GITHUB_WORKFLOW} #${GITHUB_RUN_NUMBER}" \
+            --arg text "$REPORT_BODY" \
+            '{from: $from, to: [$to], subject: $subject, text: $text}')"
+
+          response="$(curl --fail-with-body --silent --show-error \
+            --request POST "https://api.resend.com/emails" \
+            --header "Authorization: Bearer $RESEND_API_KEY" \
+            --header "Content-Type: application/json" \
+            --data "$payload")"
+          echo "Resend accepted the email request."
+          echo "$response" | jq '{id: .id}'
+
