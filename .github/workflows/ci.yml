@@ -80,11 +80,8 @@ jobs:
       - name: Upload coverage to Qlty Cloud
         if: >-
           ${{
-            secrets.QLTY_COVERAGE_TOKEN != '' &&
-            (
-              github.event_name != 'pull_request' ||
-              github.event.pull_request.head.repo.full_name == github.repository
-            )
+            github.event_name != 'pull_request' ||
+            github.event.pull_request.head.repo.full_name == github.repository
           }}
         uses: qltysh/qlty-action/coverage@v2.3.0
         with:
