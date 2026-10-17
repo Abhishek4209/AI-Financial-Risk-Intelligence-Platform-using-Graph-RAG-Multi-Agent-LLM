@@ -80,6 +80,32 @@ jobs:
             --cov-report=html:htmlcov \
             -q
 
+      # Coverage XML stores paths relative to the src/ directory by default.
+      # Prefix them with src/ so Qlty can match them to files in the repository.
+      - name: Normalize coverage paths for Qlty
+        run: |
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          coverage_file = Path("coverage.xml")
+          tree = ET.parse(coverage_file)
+          root = tree.getroot()
+
+          sources = root.find("sources")
+          if sources is not None:
+              sources.clear()
+              ET.SubElement(sources, "source").text = "."
+
+          for class_node in root.iter("class"):
+              filename = class_node.get("filename", "")
+              if filename and not filename.startswith("src/"):
+                  class_node.set("filename", f"src/{filename}")
+
+          tree.write(coverage_file, encoding="utf-8", xml_declaration=True)
+          print("Normalized coverage paths for Qlty.")
+          PY
+
       - name: Upload coverage to Qlty Cloud
         if: >-
           ${{
@@ -116,12 +142,12 @@ jobs:
         with:
           node-version: "20"
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: frontend/package.json
 
       - name: Install frontend dependencies
         if: hashFiles('frontend/package.json') != ''
         working-directory: frontend
-        run: npm ci
+        run: npm install
 
       - name: Build frontend
         if: hashFiles('frontend/package.json') != ''
