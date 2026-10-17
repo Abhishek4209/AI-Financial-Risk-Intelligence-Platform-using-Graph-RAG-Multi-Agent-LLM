@@ -65,8 +65,6 @@ jobs:
 
       - name: Validate Docker Compose configuration
         run: |
-          # Compose references a local .env file.
-          # Use an empty temporary file for CI validation.
           touch .env
           docker compose config --quiet
 
@@ -82,8 +80,11 @@ jobs:
       - name: Upload coverage to Qlty Cloud
         if: >-
           ${{
-            github.event_name != 'pull_request' ||
-            github.event.pull_request.head.repo.full_name == github.repository
+            secrets.QLTY_COVERAGE_TOKEN != '' &&
+            (
+              github.event_name != 'pull_request' ||
+              github.event.pull_request.head.repo.full_name == github.repository
+            )
           }}
         uses: qltysh/qlty-action/coverage@v2.3.0
         with:
@@ -103,16 +104,14 @@ jobs:
   frontend-checks:
     name: Frontend checks
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('frontend/package.json') != '' }}
-    defaults:
-      run:
-        working-directory: frontend
+    timeout-minutes: 15
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
       - name: Set up Node.js
+        if: hashFiles('frontend/package.json') != ''
         uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -120,14 +119,19 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
+        if: hashFiles('frontend/package.json') != ''
+        working-directory: frontend
         run: npm ci
 
       - name: Build frontend
+        if: hashFiles('frontend/package.json') != ''
+        working-directory: frontend
         run: npm run build
 
   docker-build:
     name: Docker build
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [python-checks, frontend-checks]
     if: >-
       ${{
