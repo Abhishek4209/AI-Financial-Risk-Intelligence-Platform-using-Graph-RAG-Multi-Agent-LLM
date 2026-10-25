@@ -16,6 +16,7 @@ import pandas as pd
 import requests
 
 
+
 DEFAULT_MODEL_PATH = (
     Path(__file__).resolve().parents[2]
     / "models"
@@ -38,6 +39,7 @@ RAW_TRANSACTION_FIELDS = (
 TRANSACTION_TYPES = ("CASH_IN", "CASH_OUT", "DEBIT", "PAYMENT", "TRANSFER")
 
 
+
 def load_model_artifact(path: str | Path = DEFAULT_MODEL_PATH) -> Mapping[str, Any]:
     """Load the trusted PaySim artifact exported by its training notebook."""
     with Path(path).open("rb") as artifact_file:
@@ -46,6 +48,7 @@ def load_model_artifact(path: str | Path = DEFAULT_MODEL_PATH) -> Mapping[str, A
     if not isinstance(artifact, Mapping) or not {"model", "feature_columns"} <= artifact.keys():
         raise ValueError("Model artifact must contain 'model' and 'feature_columns'.")
     return artifact
+
 
 
 def build_feature_frame(
@@ -67,6 +70,7 @@ def build_feature_frame(
     amount = float(transaction["amount"])
     old_origin = float(transaction["oldbalanceOrg"])
     new_origin = float(transaction["newbalanceOrig"])
+
     old_destination = float(transaction["oldbalanceDest"])
     new_destination = float(transaction["newbalanceDest"])
     numeric_values = (step, amount, old_origin, new_origin, old_destination, new_destination)
@@ -109,6 +113,7 @@ def build_feature_frame(
     )
 
 
+
 def explain_with_shap(model: Any, features: pd.DataFrame) -> list[dict[str, Any]]:
     """Return the largest positive and negative SHAP drivers for the fraud class."""
     try:
@@ -142,11 +147,13 @@ def explain_with_shap(model: Any, features: pd.DataFrame) -> list[dict[str, Any]
         key=lambda item: item["shap_value"],
         reverse=True,
     )[:3]
+
     negative = sorted(
         (item for item in drivers if item["shap_value"] < 0),
         key=lambda item: item["shap_value"],
     )[:3]
     return positive + negative
+
 
 
 @lru_cache(maxsize=1)
@@ -163,6 +170,7 @@ def _build_embeddings() -> Any:
         model_kwargs={"device": os.getenv("EMBEDDING_DEVICE", "cpu")},
         encode_kwargs={"normalize_embeddings": True},
     )
+
 
 
 def index_regulatory_documents(
@@ -217,6 +225,7 @@ def index_regulatory_documents(
                 }
             )
         loaded_documents.extend(file_documents)
+
         print(f"Loaded {len(loaded_documents)} pages/documents so far.", flush=True)
 
     if not loaded_documents:
@@ -249,6 +258,7 @@ def index_regulatory_documents(
         except ImportError as exc:
             raise RuntimeError("Install langchain-pinecone to use Pinecone.") from exc
 
+
         vector_store = PineconeVectorStore.from_existing_index(
             index_name=index_name,
             embedding=_build_embeddings(),
@@ -263,6 +273,7 @@ def index_regulatory_documents(
     else:
         raise ValueError("RAG_VECTOR_BACKEND must be 'faiss' or 'pinecone'.")
     return {"documents": len(loaded_documents), "chunks": len(chunks)}
+
 
 
 def retrieve_local_faiss_evidence(query: str, top_k: int = 5) -> list[Any]:
@@ -283,6 +294,7 @@ def retrieve_local_faiss_evidence(query: str, top_k: int = 5) -> list[Any]:
     return vector_store.similarity_search(query, k=top_k)
 
 
+
 def retrieve_pinecone_evidence(query: str, top_k: int = 5) -> list[Any]:
     """Retrieve regulatory chunks from an already-populated Pinecone index."""
     api_key = os.getenv("PINECONE_API_KEY")
@@ -292,6 +304,7 @@ def retrieve_pinecone_evidence(query: str, top_k: int = 5) -> list[Any]:
 
     try:
         from langchain_pinecone import PineconeVectorStore
+
     except ImportError as exc:
         raise RuntimeError(
             "Install langchain-pinecone to enable retrieval."
@@ -304,6 +317,7 @@ def retrieve_pinecone_evidence(query: str, top_k: int = 5) -> list[Any]:
     return vector_store.similarity_search(query, k=top_k)
 
 
+
 def retrieve_regulatory_evidence(query: str, top_k: int = 5) -> list[Any]:
     """Use the configured local or hosted vector database backend."""
     backend = os.getenv("RAG_VECTOR_BACKEND", "faiss").lower()
@@ -312,6 +326,7 @@ def retrieve_regulatory_evidence(query: str, top_k: int = 5) -> list[Any]:
     if backend == "pinecone":
         return retrieve_pinecone_evidence(query, top_k)
     raise ValueError("RAG_VECTOR_BACKEND must be 'faiss' or 'pinecone'.")
+
 
 
 def _format_evidence(documents: Sequence[Any]) -> list[dict[str, Any]]:
@@ -340,6 +355,7 @@ def _format_evidence(documents: Sequence[Any]) -> list[dict[str, Any]]:
     return evidence
 
 
+
 def _json_compatible(value: Any) -> Any:
     if isinstance(value, np.generic):
         return value.item()
@@ -350,6 +366,7 @@ def _json_compatible(value: Any) -> Any:
     if isinstance(value, (list, tuple)):
         return [_json_compatible(item) for item in value]
     return value
+
 
 
 def build_regulatory_query(
@@ -363,10 +380,12 @@ def build_regulatory_query(
     )
 
 
+
 def generate_ollama_report(context: Mapping[str, Any]) -> str:
     """Generate a local analyst-support summary grounded in supplied evidence."""
     base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
     model_name = os.getenv("OLLAMA_MODEL", "llama3.1")
+
     response = requests.post(
         f"{base_url}/api/chat",
         json={
@@ -378,15 +397,15 @@ def generate_ollama_report(context: Mapping[str, Any]) -> str:
                     "content": (
                         "You are a financial risk analyst assistant. Treat the model output as a "
                         "risk signal, never proof of fraud. Explain only the supplied SHAP factors. "
-                        "Use regulatory evidence only when it is present; do not invent rules or "
-                        "citations. State when retrieved evidence is insufficient. Recommend human "
-                        "review rather than an automated adverse decision."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": json.dumps(_json_compatible(context), ensure_ascii=True),
-                },
+                           "Use regulatory evidence only when it is present; do not invent rules or "
+                           "citations. State when retrieved evidence is insufficient. Recommend human "
+                           "review rather than an automated adverse decision."
+                      ),
+                 },
+                 {
+                      "role": "user",
+                      "content": json.dumps(_json_compatible(context), ensure_ascii=True),
+                 },
             ],
         },
         timeout=120,
@@ -397,6 +416,7 @@ def generate_ollama_report(context: Mapping[str, Any]) -> str:
         return str(body["message"]["content"])
     except (KeyError, TypeError) as exc:
         raise RuntimeError("Ollama returned an unexpected chat response.") from exc
+
 
 
 def generate_huggingface_report(context: Mapping[str, Any]) -> str:
@@ -436,14 +456,17 @@ def generate_huggingface_report(context: Mapping[str, Any]) -> str:
     return str(tokenizer.decode(generated_tokens[0], skip_special_tokens=True))
 
 
+
 @lru_cache(maxsize=2)
 def _load_huggingface_seq2seq_model(model_name: str) -> tuple[Any, Any]:
     from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+
     model.eval()
     return tokenizer, model
+
 
 
 def _usable_generated_summary(summary: str) -> str | None:
@@ -463,6 +486,7 @@ def _usable_generated_summary(summary: str) -> str | None:
     ):
         return None
     return cleaned
+
 
 
 def _render_investigation_report(
@@ -500,7 +524,7 @@ def _render_investigation_report(
             if item.get("organization"):
                 source = f"{item['organization']}: {source}"
             excerpt = " ".join(str(item.get("text", "")).split())[:450]
-            lines.extend([f"- **{source}**", f"  {excerpt}"])
+            lines.extend([f"- **{source}**", f" {excerpt}"])
     else:
         lines.append("- No regulatory evidence was retrieved; evidence is insufficient.")
 
@@ -517,6 +541,7 @@ def _render_investigation_report(
             "The model score is below its stored threshold. This is not proof that the "
             "transaction is legitimate; review the transaction and retrieved guidance in context."
         )
+
     lines.extend(
         [
             "",
@@ -525,6 +550,7 @@ def _render_investigation_report(
         ]
     )
     return "\n".join(lines)
+
 
 
 def investigate_transaction(
@@ -592,20 +618,21 @@ def investigate_transaction(
         raw_summary = ""
         report_generation_warning = f"Report model unavailable: {type(exc).__name__}: {exc}"
     report_summary = _usable_generated_summary(raw_summary)
-    if report_summary is None and raw_summary.strip() and report_generation_warning is None:
-        report_generation_warning = (
-            "Local model output was not a usable analyst summary; used the structured fallback."
-        )
-    report = _render_investigation_report(report_context, report_summary)
 
-    return {
-        "transaction_id": transaction.get("transaction_id"),
-        "model": report_context["model"],
-        "shap_drivers": drivers,
-        "retrieval_query": query,
-        "evidence": evidence,
-        "report": report,
-        "report_summary": report_summary,
-        "report_generation_warning": report_generation_warning,
-        "human_review_required": risk_level == "HIGH",
-    }
+if report_summary is None and raw_summary.strip() and report_generation_warning is None:
+    report_generation_warning = (
+        "Local model output was not a usable analyst summary; used the structured fallback."
+    )
+report = _render_investigation_report(report_context, report_summary)
+
+return {
+    "transaction_id": transaction.get("transaction_id"),
+    "model": report_context["model"],
+    "shap_drivers": drivers,
+    "retrieval_query": query,
+    "evidence": evidence,
+    "report": report,
+    "report_summary": report_summary,
+    "report_generation_warning": report_generation_warning,
+    "human_review_required": risk_level == "HIGH",
+}

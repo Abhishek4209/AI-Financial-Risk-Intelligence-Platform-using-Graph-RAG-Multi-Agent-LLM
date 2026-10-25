@@ -14,17 +14,16 @@ A score is a model risk signal, not proof of fraud. The model artifact's stored 
 
 Install the project dependencies and use the same Python environment for the notebook and commands. The default local workflow requires the packages in `requirements.txt`, including `xgboost`, `shap`, `faiss-cpu`, and `langchain-huggingface`.
 
-Defaults:
+Vector storage:
 
-- `RAG_VECTOR_BACKEND=faiss` stores/retrieves chunks in `vector_store/financial_rag_faiss`.
-- `RAG_DOCUMENT_ORGANIZATIONS=FATF,RBI,SEBI` limits the default index to regulatory sources; set it to `all` to include every organization folder.
-- `RAG_EMBEDDING_MODEL=BAAI/bge-small-en-v1.5` creates 384-dimensional embeddings.
+- Pinecone is the default vector store. Set `PINECONE_API_KEY` and `PINECONE_INDEX_NAME` in `.env`; the indexer creates the index if needed, using the local BGE model's 384 dimensions and cosine similarity. `PINECONE_CLOUD` and `PINECONE_REGION` default to `aws` and `us-east-1`. Without credentials, the app fails clearly instead of silently writing vectors locally.
+- To explicitly use local FAISS for development only, set `RAG_VECTOR_BACKEND=faiss`; its index is stored at `vector_store/financial_rag_faiss`.
+- `RAG_DOCUMENT_ORGANIZATIONS=FATF,RBI,SEBI,American_Express` sets the default index sources; set it to `all` to include every organization folder.
+- `RAG_EMBEDDING_MODEL=models/embeddings` loads the existing local `BAAI/bge-small-en-v1.5` model and creates 384-dimensional embeddings.
 - `RISK_REPORT_PROVIDER=huggingface` uses `google/flan-t5-small` for report generation.
 - `HF_REPORT_MODEL` can override the Hugging Face report model.
 
 The first run downloads the embedding and report models if they are not cached. To use Ollama instead, start Ollama, pull a chat model, then set `RISK_REPORT_PROVIDER=ollama`; `OLLAMA_BASE_URL` defaults to `http://localhost:11434` and `OLLAMA_MODEL` defaults to `llama3.1`.
-
-Pinecone is optional. To select it, set `RAG_VECTOR_BACKEND=pinecone`, `PINECONE_API_KEY`, and `PINECONE_INDEX_NAME`, and create an existing index with dimension `384` and cosine distance.
 
 From the repository root, index the PDF and HTML documents under `data/raw/Documents`:
 
@@ -32,7 +31,7 @@ From the repository root, index the PDF and HTML documents under `data/raw/Docum
 python -m scripts.index_regulatory_documents
 ```
 
-The default command creates/replaces the local FAISS index from FATF, RBI, and SEBI files. Set `RAG_DOCUMENT_ORGANIZATIONS=all` to include other local organization folders. To use Pinecone, set the optional environment variables above; the command upserts stable chunk IDs into the existing index.
+The command indexes FATF, RBI, SEBI, and American Express files by default. Set `RAG_DOCUMENT_ORGANIZATIONS=all` to include other local organization folders. By default, chunks are upserted with stable IDs into Pinecone. FAISS is used only when explicitly selected for development.
 
 ## Investigate A Transaction
 

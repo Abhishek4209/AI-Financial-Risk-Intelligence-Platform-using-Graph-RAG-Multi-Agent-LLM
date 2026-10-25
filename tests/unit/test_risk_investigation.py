@@ -123,22 +123,14 @@ def test_malformed_generated_summary_uses_grounded_fallback():
 def test_huggingface_report_serializes_numpy_values(monkeypatch):
     captured_prompts = []
 
-    class FakeTokenizer:
-        def __call__(self, prompt, **kwargs):
+    class FakeLLM:
+        def invoke(self, prompt):
             captured_prompts.append(prompt)
-            return {"input_ids": [1]}
-
-        def decode(self, tokens, **kwargs):
             return "Grounded report"
 
-    class FakeModel:
-        def generate(self, **kwargs):
-            return [[1]]
-
     monkeypatch.setattr(
-        risk_investigation,
-        "_load_huggingface_seq2seq_model",
-        lambda model_name: (FakeTokenizer(), FakeModel()),
+        "src.llm.llm_factory.get_llm",
+        lambda provider: FakeLLM(),
     )
 
     report = generate_huggingface_report(
@@ -151,4 +143,32 @@ def test_huggingface_report_serializes_numpy_values(monkeypatch):
     )
 
     assert report == "Grounded report"
-    assert "amount: 1" in captured_prompts[0]
+    assert '"amount": 1' in captured_prompts[0]
+
+
+def test_api_investigation_route_works_for_valid_transaction(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from src.api.main import app
+
+    monkeypatch.setenv("RAG_VECTOR_BACKEND", "faiss")
+    client = TestClient(app)
+    response = client.post(
+        "/investigate",
+        json={
+            "transaction_id": "T10045",
+            "step": 49,
+            "type": "TRANSFER",
+            "amount": 850000,
+            "oldbalanceOrg": 900000,
+            "newbalanceOrig": 50000,
+            "oldbalanceDest": 10000,
+            "newbalanceDest": 860000,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["model"]["risk_level"] in {"HIGH", "BELOW_MODEL_THRESHOLD"}
+    assert "report" in payload
+    assert "evidence" in payload
