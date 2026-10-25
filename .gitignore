@@ -5,3 +5,7 @@ data/
 
 # Local model artifacts
 models/*.joblib
+# Local secrets
+.env
+.env.*
+!.env.example
