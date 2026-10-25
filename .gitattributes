@@ -1,0 +1,2 @@
+models/embeddings/model.safetensors filter=lfs diff=lfs merge=lfs -text
+models/Que_Ans/model.safetensors filter=lfs diff=lfs merge=lfs -text
