@@ -1,19 +1,21 @@
 {
-"name": "financial-risk-intelligence-frontend",
-"private": true,
-"version": "0.1.0",
-"type": "module",
-"scripts": {
-"dev": "vite",
-"build": "vite build",
-"preview": "vite preview"
-},
-"dependencies": {
-"@vitejs/plugin-react": "latest",
-"lucide-react": "latest",
-"vite": "latest",
-"react": "latest",
-"react-dom": "latest"
-},
-"devDependencies": {}
+  "name": "financial-risk-intelligence-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "framer-motion": "^14.6.0",
+    "lucide-react": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-router-dom": "^7.18.4",
+    "recharts": "^3.10.1",
+    "vite": "latest"
+  }
 }

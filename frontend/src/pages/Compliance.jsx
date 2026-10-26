@@ -1,7 +1,13 @@
+
 import { useState } from 'react'
 import { Search } from 'lucide-react'
-import { askCompliance } from '../services/riskApi'
-import { EvidenceList } from '../components'
+import {
+  askCompliance,
+  friendlyErrorMessage,
+  isNetworkError,
+} from '../services/riskApi'
+import { useToast } from '../hooks/useToast'
+import { BackendOfflineNotice, EvidenceList } from '../components'
 
 export default function Compliance() {
   const [question, setQuestion] = useState('')
@@ -9,35 +15,124 @@ export default function Compliance() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
+  const { notify } = useToast()
+
   async function handleSubmit(event) {
-    event.preventDefault()
+    event?.preventDefault()
+
     if (!question.trim()) return
-    setLoading(true); setError(null)
+
+    setLoading(true)
+    setError(null)
+
     try {
-      const result = await askCompliance(question.trim())
-      setHistory((current) => [{ question: question.trim(), ...result }, ...current])
+      const result = await askCompliance(question)
+
+      setHistory((current) => [
+        { question, ...result },
+        ...current,
+      ])
+
       setQuestion('')
-    } catch (submitError) { setError(submitError) }
-    finally { setLoading(false) }
+    } catch (submitError) {
+      setError(submitError)
+
+      notify(
+        friendlyErrorMessage(
+          submitError,
+          'Compliance query failed.',
+        ),
+        { tone: 'error' },
+      )
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <section className="page-content">
-      <section className="page-heading"><div><p className="eyebrow">WORKSPACE / COMPLIANCE</p><h1>Regulatory Q&amp;A</h1><p className="heading-copy">Ask questions about regulatory requirements. Connect the retrieval backend for source-grounded answers.</p></div></section>
+      <section className="page-heading">
+        <div>
+          <p className="eyebrow">WORKSPACE / COMPLIANCE</p>
+          <h1>Regulatory Q&amp;A</h1>
+          <p className="heading-copy">
+            Answers are grounded only in retrieved regulatory documents;
+            insufficient evidence is stated explicitly.
+          </p>
+        </div>
+      </section>
+
       <article className="panel">
         <form className="rag-form" onSubmit={handleSubmit}>
-          <input type="text" placeholder="e.g. What KYC documentation is required for high-risk customers?" value={question} onChange={(event) => setQuestion(event.target.value)} />
-          <button type="submit" className="primary-button" disabled={loading || !question.trim()}><Search size={16} />{loading ? 'Searching...' : 'Ask'}</button>
+          <input
+            type="text"
+            placeholder="e.g. What KYC documentation is required for high-risk customers?"
+            value={question}
+            onChange={(event) => setQuestion(event.target.value)}
+          />
+
+          <button
+            type="submit"
+            className="primary-button"
+            disabled={loading}
+          >
+            <Search size={16} />
+            {loading ? 'Searching...' : 'Ask'}
+          </button>
         </form>
-        {error && <p className="empty-state empty-state--warning">{error.message}</p>}
+
+        {error &&
+          (isNetworkError(error) ? (
+            <BackendOfflineNotice
+              label="compliance answers"
+              onRetry={handleSubmit}
+            />
+          ) : (
+            <p className="empty-state empty-state--warning">
+              {error.message}
+            </p>
+          ))}
+
         <div className="rag-history">
-          {history.length === 0 && !loading && <p className="empty-state">No questions asked yet.</p>}
+          {history.length === 0 && !loading && (
+            <p className="empty-state">
+              No questions asked yet.
+            </p>
+          )}
+
           {history.map((entry, index) => (
-            <div className="rag-entry" key={`${entry.question}-${index}`}>
-              <p className="rag-entry__question">{entry.question}</p>
-              <p className={`rag-entry__answer ${entry.grounded ? '' : 'rag-entry__answer--ungrounded'}`}>{entry.answer}</p>
-              {!entry.evidence_sufficient && <p className="empty-state empty-state--warning">Insufficient evidence was retrieved for this question.</p>}
-              <EvidenceList evidence={(entry.sources || []).map((source) => typeof source === 'string' ? ({ source, text: '' }) : source)} />
+            <div
+              className="rag-entry"
+              key={`${entry.question}-${index}`}
+            >
+              <p className="rag-entry__question">
+                {entry.question}
+              </p>
+
+              <p
+                className={`rag-entry__answer ${
+                  entry.grounded
+                    ? ''
+                    : 'rag-entry__answer--ungrounded'
+                }`}
+              >
+                {entry.answer}
+              </p>
+
+              {!entry.evidence_sufficient && (
+                <p className="empty-state empty-state--warning">
+                  Insufficient evidence was retrieved for this question.
+                </p>
+              )}
+
+              {entry.sources?.length > 0 && (
+                <EvidenceList
+                  evidence={entry.sources.map((source) => ({
+                    source,
+                    text: '',
+                  }))}
+                />
+              )}
             </div>
           ))}
         </div>
