@@ -16,6 +16,14 @@ const ICON_BY_TONE = {
   info: Info,
 }
 
+function createToastId() {
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID()
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+}
+
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([])
 
@@ -27,7 +35,7 @@ export function ToastProvider({ children }) {
 
   const notify = useCallback(
     (message, { tone = 'info', duration = 4500 } = {}) => {
-      const id = crypto.randomUUID()
+      const id = createToastId()
 
       setToasts((current) => [
         ...current,

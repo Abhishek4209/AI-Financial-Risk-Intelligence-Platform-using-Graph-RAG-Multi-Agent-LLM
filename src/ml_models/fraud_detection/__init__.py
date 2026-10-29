@@ -16,42 +16,37 @@ from src.utils.constants import FRAUD_MODEL_FILES, MODEL_ROOT
 
 
 DEFAULT_PAYSIM_THRESHOLD = 0.5
+IEEE_ENCODER_FILE = MODEL_ROOT / "Fraud_models" / "ieee_categorical_encoders.pkl"
 
 
 def _artifact_path(
     dataset: str,
     path: str | Path | None,
 ) -> Path:
+    """Resolve the model artifact path for a dataset."""
     if path is not None:
         return Path(path).expanduser()
 
     relative = FRAUD_MODEL_FILES.get(dataset)
     if relative:
-        notebook_path = MODEL_ROOT / relative
-        if notebook_path.is_file():
-            return notebook_path
+        candidate = MODEL_ROOT / relative
+        if candidate.is_file():
+            return candidate
 
-    return MODEL_ROOT / ("%s_random_forest.joblib" % dataset)
+    return MODEL_ROOT / f"{dataset}_random_forest.joblib"
 
 
-def _normalize_artifact(
-    raw: Any,
-    dataset: str,
-) -> dict[str, Any]:
-    """Wrap a bare estimator into the project's artifact dictionary."""
+def _normalize_artifact(raw: Any, dataset: str) -> dict[str, Any]:
+    """Wrap a bare estimator in the project's artifact dictionary."""
     if isinstance(raw, Mapping) and "model" in raw:
         return dict(raw)
 
     feature_names = getattr(raw, "feature_names_in_", None)
-    feature_columns = (
-        list(feature_names)
-        if feature_names is not None
-        else []
-    )
-
     return {
         "model": raw,
-        "feature_columns": feature_columns,
+        "feature_columns": (
+            list(feature_names) if feature_names is not None else []
+        ),
         "dataset": dataset,
         "threshold": DEFAULT_PAYSIM_THRESHOLD,
     }
@@ -67,26 +62,45 @@ def load_fraud_artifact(
 
     if not source.is_file():
         raise FileNotFoundError(
-            "Fraud model artifact not found: %s" % source
+            f"Fraud model artifact not found: {source}"
         )
 
-    if source.suffix == ".pkl":
+    if source.suffix.lower() == ".pkl":
         with source.open("rb") as artifact_file:
             raw = pickle.load(artifact_file)
     else:
         raw = joblib.load(source)
 
     artifact = _normalize_artifact(raw, dataset)
-
     if "model" not in artifact:
         raise ValueError(
-            "Fraud artifact must contain a 'model': %s" % source
+            f"Fraud artifact must contain a 'model': {source}"
         )
 
     return artifact
 
 
+@lru_cache(maxsize=2)
+def _load_ieee_encoders() -> Mapping[str, Any]:
+    """Load the categorical encoders saved during IEEE-CIS training."""
+    if not IEEE_ENCODER_FILE.is_file():
+        raise FileNotFoundError(
+            "IEEE-CIS categorical encoders were not found at "
+            f"{IEEE_ENCODER_FILE}. Run the updated training notebook "
+            "and save the encoders before using raw categorical values."
+        )
+
+    with IEEE_ENCODER_FILE.open("rb") as encoder_file:
+        encoders = pickle.load(encoder_file)
+
+    if not isinstance(encoders, Mapping):
+        raise ValueError("IEEE-CIS encoder file must contain a mapping.")
+
+    return encoders
+
+
 def _score(model: Any, frame: pd.DataFrame) -> float:
+    """Return the model probability for positive class 1."""
     probabilities = model.predict_proba(frame)
     classes = list(getattr(model, "classes_", [0, 1]))
 
@@ -94,10 +108,40 @@ def _score(model: Any, frame: pd.DataFrame) -> float:
         positive_index = classes.index(1)
     except ValueError as exc:
         raise ValueError(
-            "Fraud model does not expose a positive class 1"
+            "Fraud model does not expose a positive class 1."
         ) from exc
 
     return float(probabilities[0][positive_index])
+
+
+def _get_threshold(artifact: Mapping[str, Any]) -> float:
+    """Get and validate the configured decision threshold."""
+    threshold = float(
+        artifact.get("threshold", DEFAULT_PAYSIM_THRESHOLD)
+    )
+    if not 0.0 <= threshold <= 1.0:
+        raise ValueError("Model threshold must be between 0 and 1.")
+    return threshold
+
+
+def _prediction_result(
+    dataset: str,
+    risk_score: float,
+    threshold: float,
+) -> dict[str, Any]:
+    """Build a consistent response for a fraud prediction."""
+    return {
+        "dataset": dataset,
+        "fraud_risk_score": risk_score,
+        "threshold": threshold,
+        "risk_level": (
+            "HIGH" if risk_score >= threshold
+            else "BELOW_MODEL_THRESHOLD"
+        ),
+        "interpretation": (
+            "Model risk signal only; this does not establish fraud."
+        ),
+    }
 
 
 def predict_paysim_fraud_risk(
@@ -105,40 +149,60 @@ def predict_paysim_fraud_risk(
     *,
     artifact: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Score a PaySim transaction using its model feature schema."""
+    """Score a PaySim transaction using its own feature builder."""
     model_artifact = (
-        artifact
-        if artifact is not None
-        else load_fraud_artifact("paysim")
+        artifact if artifact is not None else load_fraud_artifact("paysim")
     )
 
-    feature_columns = model_artifact["feature_columns"]
-    frame = build_paysim_features(
-        transaction,
-        feature_columns,
-    )
-
-    risk_score = _score(model_artifact["model"], frame)
-    threshold = float(
-        model_artifact.get(
-            "threshold",
-            DEFAULT_PAYSIM_THRESHOLD,
+    feature_columns = model_artifact.get("feature_columns")
+    if not feature_columns:
+        raise ValueError(
+            "PaySim artifact has no recorded feature_columns."
         )
+
+    # PaySim preprocessing is intentionally unchanged.
+    frame = build_paysim_features(transaction, feature_columns)
+    risk_score = _score(model_artifact["model"], frame)
+    threshold = _get_threshold(model_artifact)
+
+    return _prediction_result("paysim", risk_score, threshold)
+
+
+def _build_ieee_frame(
+    features: Mapping[str, Any],
+    feature_columns: list[str],
+) -> pd.DataFrame:
+    """Build a numeric IEEE-CIS frame and encode raw string categories."""
+    frame = pd.DataFrame(
+        [{column: features[column] for column in feature_columns}],
+        columns=feature_columns,
     )
 
-    return {
-        "dataset": "paysim",
-        "fraud_risk_score": risk_score,
-        "threshold": threshold,
-        "risk_level": (
-            "HIGH"
-            if risk_score >= threshold
-            else "BELOW_MODEL_THRESHOLD"
-        ),
-        "interpretation": (
-            "Model risk signal only; this does not establish fraud."
-        ),
-    }
+    # Apply the saved training encoders only to string-valued categories.
+    # Numeric values are assumed to already be encoded.
+    encoders = _load_ieee_encoders() if any(
+        isinstance(features.get(column), str)
+        for column in feature_columns
+        if column in features
+    ) else {}
+
+    for column in feature_columns:
+        value = features[column]
+
+        if column in encoders and isinstance(value, str):
+            encoder = encoders[column]
+            try:
+                frame.at[0, column] = encoder.transform([value])[0]
+            except ValueError as exc:
+                raise ValueError(
+                    f"Unknown category {value!r} for IEEE-CIS feature "
+                    f"{column!r}. Use the same category mapping as training."
+                ) from exc
+
+    for column in frame.columns:
+        frame[column] = pd.to_numeric(frame[column], errors="coerce")
+
+    return frame.fillna(-999)
 
 
 def predict_fraud_risk(
@@ -147,7 +211,7 @@ def predict_fraud_risk(
     *,
     artifact: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Score an already-engineered feature vector."""
+    """Score an engineered feature vector using the selected dataset model."""
     model_artifact = (
         artifact
         if artifact is not None
@@ -155,49 +219,38 @@ def predict_fraud_risk(
     )
 
     feature_columns = model_artifact.get("feature_columns")
-
     if not feature_columns:
         raise ValueError(
-            "Artifact for %r has no recorded feature_columns; "
-            "use the artifact produced by scripts/train.py."
-            % dataset
+            f"Artifact for {dataset!r} has no recorded feature_columns."
         )
 
     missing = [
-        column
-        for column in feature_columns
+        column for column in feature_columns
         if column not in engineered_features
     ]
-
     if missing:
         raise ValueError(
-            "Missing required engineered features for %r: %s"
-            % (dataset, missing)
+            f"Missing required engineered features for {dataset!r}: "
+            f"{missing[:20]}"
         )
 
-    frame = pd.DataFrame(
-        [[engineered_features[column] for column in feature_columns]],
-        columns=list(feature_columns),
-    )
+    if dataset == "ieee_cis":
+        frame = _build_ieee_frame(
+            engineered_features,
+            list(feature_columns),
+        )
+    else:
+        frame = pd.DataFrame(
+            [
+                {
+                    column: engineered_features[column]
+                    for column in feature_columns
+                }
+            ],
+            columns=list(feature_columns),
+        )
 
     risk_score = _score(model_artifact["model"], frame)
-    threshold = float(
-        model_artifact.get(
-            "threshold",
-            DEFAULT_PAYSIM_THRESHOLD,
-        )
-    )
+    threshold = _get_threshold(model_artifact)
 
-    return {
-        "dataset": dataset,
-        "fraud_risk_score": risk_score,
-        "threshold": threshold,
-        "risk_level": (
-            "HIGH"
-            if risk_score >= threshold
-            else "BELOW_MODEL_THRESHOLD"
-        ),
-        "interpretation": (
-            "Model risk signal only; this does not establish fraud."
-        ),
-    }
+    return _prediction_result(dataset, risk_score, threshold)
