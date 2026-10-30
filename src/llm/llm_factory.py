@@ -83,9 +83,10 @@ def _load_seq2seq_model(model_name: str) -> tuple[Any, Any]:
 
 def _huggingface_generate(prompt: str) -> str:
     try:
-        tokenizer, model = _load_seq2seq_model(
-            os.getenv("HF_REPORT_MODEL", "google/flan-t5-small")
+        model_name = os.getenv(
+            "HF_REPORT_MODEL", "google/flan-t5-base"
         )
+        tokenizer, model = _load_seq2seq_model(model_name)
     except ImportError as exc:
         raise RuntimeError(
             "Install transformers to use local Hugging Face generation"
@@ -95,13 +96,21 @@ def _huggingface_generate(prompt: str) -> str:
         prompt,
         return_tensors="pt",
         truncation=True,
-        max_length=512,
+        max_length=1024,
     )
+
     generated_tokens = model.generate(
         **inputs,
-        max_new_tokens=200,
+        max_new_tokens=256,
+        num_beams=4,
         do_sample=False,
+        early_stopping=True,
+        no_repeat_ngram_size=3,
     )
-    return str(
-        tokenizer.decode(generated_tokens[0], skip_special_tokens=True)
+
+    answer = tokenizer.decode(
+        generated_tokens[0],
+        skip_special_tokens=True,
     )
+
+    return answer.strip()
