@@ -5,3 +5,10 @@ data/
 
 # Local model artifacts
 models/*.joblib
+# Local secrets
+.env
+.env.*
+!.env.example
+# Frontend dependencies and generated build files
+frontend/node_modules/
+frontend/dist/
