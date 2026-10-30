@@ -244,9 +244,10 @@ def index_regulatory_documents(
 
     root = Path(documents_dir)
     configured_organizations = os.getenv(
-        "RAG_DOCUMENT_ORGANIZATIONS",
-        "FATF,RBI,SEBI",
+    "RAG_DOCUMENT_ORGANIZATIONS",
+    "FATF,RBI,SEBI,American_Express",
     )
+    
 
     allowed_organizations = {
         organization.strip().casefold()
