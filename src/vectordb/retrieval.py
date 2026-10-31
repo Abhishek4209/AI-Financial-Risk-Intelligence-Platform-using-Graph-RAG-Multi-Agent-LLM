@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +20,72 @@ def _store_path(path: str | Path | None = None) -> Path:
         str(VECTOR_STORE_ROOT),
     )
     return Path(configured_path)
+
+
+def _document_fingerprint(document: Any) -> str:
+    """Create a stable fingerprint for a document chunk."""
+    content = str(getattr(document, "page_content", ""))
+
+    metadata = getattr(document, "metadata", {}) or {}
+
+    source = str(
+        metadata.get("source_file")
+        or metadata.get("file_path")
+        or metadata.get("source")
+        or ""
+    )
+
+    # Normalize Windows and Unix paths.
+    source = source.replace("\\", "/").split("/")[-1]
+
+    # Remove a UUID prefix from uploaded filenames.
+    source = re.sub(
+        r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+        r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}_",
+        "",
+        source,
+    )
+
+    page = str(metadata.get("page", ""))
+
+    fingerprint_data = f"{source}|{page}|{content}"
+
+    return hashlib.sha256(
+        fingerprint_data.encode("utf-8")
+    ).hexdigest()
+
+
+def _existing_fingerprints(store: Any) -> set[str]:
+    """Collect fingerprints for documents already stored in FAISS."""
+    fingerprints: set[str] = set()
+
+    docstore = getattr(store, "docstore", None)
+    documents = getattr(docstore, "_dict", {})
+
+    for document in documents.values():
+        fingerprints.add(_document_fingerprint(document))
+
+    return fingerprints
+
+
+def _filter_new_documents(
+    documents: list[Any],
+    existing_fingerprints: set[str],
+) -> list[Any]:
+    """Remove duplicate chunks from the incoming batch."""
+    unique_documents: list[Any] = []
+    seen = set(existing_fingerprints)
+
+    for document in documents:
+        fingerprint = _document_fingerprint(document)
+
+        if fingerprint in seen:
+            continue
+
+        seen.add(fingerprint)
+        unique_documents.append(document)
+
+    return unique_documents
 
 
 def build_faiss_store(
@@ -43,6 +111,7 @@ def build_faiss_store(
         documents,
         get_embedding_model(),
     )
+
     store.save_local(str(store_path))
 
     return store
@@ -79,7 +148,7 @@ def add_documents_to_faiss(
     *,
     path: str | Path | None = None,
 ) -> Any:
-    """Add document chunks to an existing index or create a new one."""
+    """Add only new document chunks to the existing FAISS index."""
     store_path = _store_path(path)
 
     if not documents:
@@ -87,8 +156,20 @@ def add_documents_to_faiss(
 
     if (store_path / "index.faiss").is_file():
         store = load_faiss_store(path=path)
-        store.add_documents(documents)
+
+        existing_fingerprints = _existing_fingerprints(store)
+
+        new_documents = _filter_new_documents(
+            documents,
+            existing_fingerprints,
+        )
+
+        if not new_documents:
+            return store
+
+        store.add_documents(new_documents)
         store.save_local(str(store_path))
+
         return store
 
     return build_faiss_store(documents, path=path)
