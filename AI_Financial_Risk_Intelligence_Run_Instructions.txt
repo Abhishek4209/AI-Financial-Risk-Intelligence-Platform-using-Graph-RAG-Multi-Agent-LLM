@@ -1,0 +1,288 @@
+AI FINANCIAL RISK INTELLIGENCE PLATFORM
+APPLICATION STARTUP INSTRUCTIONS (WINDOWS)
+
+============================================================
+1. PROJECT DETAILS
+============================================================
+
+Project folder:
+C:\Users\USER\OneDrive\Desktop\AI-Financial-Risk-Intelligence
+
+Conda environment:
+ds
+
+Database:
+PostgreSQL
+Database name: financial_risk_db
+Database host: 127.0.0.1
+Database port: 5432
+Database user: postgres
+
+Backend:
+FastAPI / Uvicorn
+Port: 8000
+
+Frontend:
+React / Vite
+Port: 5173
+
+IMPORTANT:
+- Start PostgreSQL first.
+- Start the backend in Terminal 1.
+- Start the frontend in Terminal 2.
+- Keep both terminals open while using the application.
+- Replace YOUR_PASSWORD with your own PostgreSQL password.
+- Do not share or commit your database password.
+
+============================================================
+2. START THE DATABASE
+============================================================
+
+1. Open pgAdmin 4.
+2. Connect to your PostgreSQL server.
+3. Confirm that the database financial_risk_db exists.
+4. Keep the PostgreSQL server running.
+
+The application expects this database connection:
+
+postgresql://postgres:YOUR_PASSWORD@127.0.0.1:5432/financial_risk_db
+
+If the password contains URL-special characters (for example @, #, or %),
+URL-encode those characters before putting the password in DATABASE_URL.
+
+Do not create, drop, or truncate tables during normal startup.
+
+============================================================
+3. START THE BACKEND (TERMINAL 1)
+============================================================
+
+Open a NEW PowerShell terminal in VS Code.
+
+Run these commands:
+
+cd "C:\Users\USER\OneDrive\Desktop\AI-Financial-Risk-Intelligence"
+
+conda activate ds
+
+Set the PostgreSQL connection (replace YOUR_PASSWORD):
+
+$env:DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@127.0.0.1:5432/financial_risk_db"
+
+Set the allowed frontend origins:
+
+$env:CORS_ALLOWED_ORIGINS="http://localhost:5173,http://127.0.0.1:5173,http://10.171.1.112:5173"
+
+Set the development authentication option:
+
+$env:AUTH_DISABLED="true"
+
+Start FastAPI:
+
+python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
+
+EXPECTED RESULT:
+Uvicorn should report that the application startup is complete and that it
+is running on port 8000.
+
+KEEP TERMINAL 1 OPEN.
+
+============================================================
+4. VERIFY THE BACKEND
+============================================================
+
+Open these addresses in your browser:
+
+Swagger API documentation:
+http://127.0.0.1:8000/docs
+
+Overview API:
+http://127.0.0.1:8000/api/overview
+
+If the Swagger page opens, the backend server is reachable.
+
+The overview API should return JSON. Counts may be zero if no data has
+been inserted into the database yet.
+
+============================================================
+5. START THE FRONTEND (TERMINAL 2)
+============================================================
+
+Open a SECOND PowerShell terminal. Do not stop Terminal 1.
+
+Run:
+
+cd "C:\Users\USER\OneDrive\Desktop\AI-Financial-Risk-Intelligence\frontend"
+
+Set the backend URL:
+
+$env:VITE_API_URL="http://127.0.0.1:8000"
+
+Install dependencies only if this is the first run or node_modules is missing:
+
+npm install
+
+Start Vite:
+
+npm run dev -- --host 0.0.0.0
+
+EXPECTED RESULT:
+Vite should display a local development URL and a network URL.
+
+KEEP TERMINAL 2 OPEN.
+
+============================================================
+6. OPEN THE APPLICATION
+============================================================
+
+On the SAME computer, open:
+
+Frontend:
+http://10.171.1.112:5173/
+
+You can also try:
+http://localhost:5173/
+
+After opening the application, use Ctrl + Shift + R for a hard refresh
+if the page shows old content.
+
+============================================================
+7. IMPORTANT: FRONTEND IP AND CORS
+============================================================
+
+The currently working frontend origin is:
+
+http://10.171.1.112:5173
+
+The backend CORS setting must include that exact origin:
+
+$env:CORS_ALLOWED_ORIGINS="http://localhost:5173,http://127.0.0.1:5173,http://10.171.1.112:5173"
+
+If your computer's LAN IP changes, update the IP in BOTH places:
+1. CORS_ALLOWED_ORIGINS in the backend terminal.
+2. The frontend URL you open in your browser.
+
+After changing CORS settings:
+1. Stop the backend with Ctrl + C.
+2. Run the environment-variable commands again.
+3. Restart Uvicorn.
+4. Hard-refresh the frontend.
+
+To find the current LAN IPv4 address, run:
+
+ipconfig
+
+Look for the IPv4 Address of the active Wi-Fi or Ethernet adapter.
+Use that address in the frontend origin, for example:
+http://YOUR_CURRENT_IP:5173
+
+NOTE:
+The VITE_API_URL shown above uses 127.0.0.1 and is correct when the
+browser and backend are running on the same computer.
+If you access the frontend from another device, configure VITE_API_URL
+to use the backend computer's reachable LAN IP, and restart Vite.
+
+============================================================
+8. NORMAL DAILY STARTUP CHECKLIST
+============================================================
+
+[ ] Start PostgreSQL / connect through pgAdmin.
+[ ] Open Terminal 1.
+[ ] Activate Conda environment: conda activate ds
+[ ] Set DATABASE_URL.
+[ ] Set CORS_ALLOWED_ORIGINS.
+[ ] Set AUTH_DISABLED=true.
+[ ] Start Uvicorn on port 8000.
+[ ] Confirm http://127.0.0.1:8000/docs opens.
+[ ] Open Terminal 2.
+[ ] Change directory to the frontend folder.
+[ ] Set VITE_API_URL.
+[ ] Run npm run dev -- --host 0.0.0.0.
+[ ] Open http://10.171.1.112:5173/.
+[ ] Confirm dashboard data loads.
+
+============================================================
+9. TROUBLESHOOTING
+============================================================
+
+A. Backend page says connection refused
+- Check that Terminal 1 is still running.
+- Check the Uvicorn startup output for Python errors.
+- Confirm port 8000 is listening:
+
+  netstat -ano | findstr :8000
+
+- Open http://127.0.0.1:8000/docs again.
+
+B. Browser reports a CORS error
+- Confirm the browser's frontend origin exactly matches an entry in
+  CORS_ALLOWED_ORIGINS.
+- The currently working origin is http://10.171.1.112:5173.
+- Restart the backend after changing CORS_ALLOWED_ORIGINS.
+- Check the existing CORSMiddleware configuration in src/api/main.py.
+  Do not add duplicate middleware without inspecting the existing code.
+
+C. Database connection error
+- Confirm PostgreSQL is running.
+- Confirm database name, username, port, and password.
+- Recheck DATABASE_URL.
+- URL-encode special characters in the password.
+
+D. Frontend cannot reach the API
+- Confirm the backend docs open at http://127.0.0.1:8000/docs.
+- Confirm VITE_API_URL is http://127.0.0.1:8000 for same-computer use.
+- Restart Vite after changing VITE_API_URL.
+
+E. Port 8000 is already in use
+- Check the process with:
+
+  netstat -ano | findstr :8000
+
+- Do not terminate an unknown process. Identify it first.
+
+F. Frontend dependencies are missing
+- From the frontend folder, run:
+
+  npm install
+
+============================================================
+10. SECURITY AND DEVELOPMENT NOTES
+============================================================
+
+- AUTH_DISABLED=true is a development setting. Do not use it for a
+  public or production deployment.
+- Do not expose PostgreSQL directly to the internet.
+- Do not commit passwords, .env files, or database credentials.
+- The LAN IP can change when reconnecting to Wi-Fi.
+- Demo records are synthetic test data, not real customer or fraud data.
+- Inserting database records does not automatically run ML models.
+  Test each prediction endpoint/module separately.
+- The RAG/Compliance feature may require its vector index and documents
+  to be prepared separately.
+
+============================================================
+11. QUICK REFERENCE
+============================================================
+
+Backend start:
+python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
+
+Backend docs:
+http://127.0.0.1:8000/docs
+
+Frontend start:
+npm run dev -- --host 0.0.0.0
+
+Frontend URL (current LAN IP):
+http://10.171.1.112:5173/
+
+Database:
+financial_risk_db
+
+Backend port:
+8000
+
+Frontend port:
+5173
+
+PostgreSQL port:
+5432

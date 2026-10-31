@@ -1,9 +1,11 @@
 
-"""Local FAISS vector store, matching the RAG and RAG_Experiments notebooks."""
+"""Local FAISS vector store for the financial risk RAG pipeline."""
 
 from __future__ import annotations
 
+import hashlib
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -13,10 +15,77 @@ from src.utils.constants import VECTOR_STORE_ROOT
 
 def _store_path(path: str | Path | None = None) -> Path:
     """Resolve the configured local FAISS index directory."""
-    return Path(
-        path
-        or os.getenv("LOCAL_VECTOR_STORE_PATH", str(VECTOR_STORE_ROOT))
+    configured_path = path or os.getenv(
+        "LOCAL_VECTOR_STORE_PATH",
+        str(VECTOR_STORE_ROOT),
     )
+    return Path(configured_path)
+
+
+def _document_fingerprint(document: Any) -> str:
+    """Create a stable fingerprint for a document chunk."""
+    content = str(getattr(document, "page_content", ""))
+
+    metadata = getattr(document, "metadata", {}) or {}
+
+    source = str(
+        metadata.get("source_file")
+        or metadata.get("file_path")
+        or metadata.get("source")
+        or ""
+    )
+
+    # Normalize Windows and Unix paths.
+    source = source.replace("\\", "/").split("/")[-1]
+
+    # Remove a UUID prefix from uploaded filenames.
+    source = re.sub(
+        r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+        r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}_",
+        "",
+        source,
+    )
+
+    page = str(metadata.get("page", ""))
+
+    fingerprint_data = f"{source}|{page}|{content}"
+
+    return hashlib.sha256(
+        fingerprint_data.encode("utf-8")
+    ).hexdigest()
+
+
+def _existing_fingerprints(store: Any) -> set[str]:
+    """Collect fingerprints for documents already stored in FAISS."""
+    fingerprints: set[str] = set()
+
+    docstore = getattr(store, "docstore", None)
+    documents = getattr(docstore, "_dict", {})
+
+    for document in documents.values():
+        fingerprints.add(_document_fingerprint(document))
+
+    return fingerprints
+
+
+def _filter_new_documents(
+    documents: list[Any],
+    existing_fingerprints: set[str],
+) -> list[Any]:
+    """Remove duplicate chunks from the incoming batch."""
+    unique_documents: list[Any] = []
+    seen = set(existing_fingerprints)
+
+    for document in documents:
+        fingerprint = _document_fingerprint(document)
+
+        if fingerprint in seen:
+            continue
+
+        seen.add(fingerprint)
+        unique_documents.append(document)
+
+    return unique_documents
 
 
 def build_faiss_store(
@@ -35,8 +104,15 @@ def build_faiss_store(
     if not documents:
         raise ValueError("documents must not be empty")
 
-    store = FAISS.from_documents(documents, get_embedding_model())
-    store.save_local(str(_store_path(path)))
+    store_path = _store_path(path)
+    store_path.mkdir(parents=True, exist_ok=True)
+
+    store = FAISS.from_documents(
+        documents,
+        get_embedding_model(),
+    )
+
+    store.save_local(str(store_path))
 
     return store
 
@@ -55,7 +131,7 @@ def load_faiss_store(
 
     store_path = _store_path(path)
 
-    if not (store_path / "index.faiss").exists():
+    if not (store_path / "index.faiss").is_file():
         raise FileNotFoundError(
             "No FAISS index found at %s; build it first" % store_path
         )
@@ -72,19 +148,61 @@ def add_documents_to_faiss(
     *,
     path: str | Path | None = None,
 ) -> Any:
-    """Add documents to an existing index or create a new one."""
+    """Add only new document chunks to the existing FAISS index."""
+    store_path = _store_path(path)
+
     if not documents:
         return load_faiss_store(path=path)
 
-    store_path = _store_path(path)
-
-    if (store_path / "index.faiss").exists():
+    if (store_path / "index.faiss").is_file():
         store = load_faiss_store(path=path)
-        store.add_documents(documents)
+
+        existing_fingerprints = _existing_fingerprints(store)
+
+        new_documents = _filter_new_documents(
+            documents,
+            existing_fingerprints,
+        )
+
+        if not new_documents:
+            return store
+
+        store.add_documents(new_documents)
         store.save_local(str(store_path))
+
         return store
 
     return build_faiss_store(documents, path=path)
+
+
+def similarity_search_with_scores(
+    query: str,
+    *,
+    top_k: int = 5,
+    path: str | Path | None = None,
+) -> list[tuple[Any, float]]:
+    """Retrieve documents with their FAISS distance scores.
+
+    Lower L2 distance generally indicates a closer match.
+    No arbitrary score threshold is applied.
+    """
+    if not query or not query.strip():
+        raise ValueError("query must not be empty")
+
+    if top_k < 1:
+        raise ValueError("top_k must be at least 1")
+
+    store = load_faiss_store(path=path)
+
+    results = store.similarity_search_with_score(
+        query.strip(),
+        k=top_k,
+    )
+
+    return [
+        (document, float(score))
+        for document, score in results
+    ]
 
 
 def similarity_search(
@@ -94,5 +212,13 @@ def similarity_search(
     path: str | Path | None = None,
 ) -> list[Any]:
     """Retrieve the most relevant documents from the local FAISS index."""
-    store = load_faiss_store(path=path)
-    return store.similarity_search(query, k=top_k)
+    results = similarity_search_with_scores(
+        query,
+        top_k=top_k,
+        path=path,
+    )
+
+    return [
+        document
+        for document, _ in results
+    ]
