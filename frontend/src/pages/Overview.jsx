@@ -212,7 +212,7 @@ export default function Overview() {
         {data.recent_cases.length ? (
           <PriorityCasesTable
             cases={data.recent_cases.map(toCaseRow)}
-            onOpenCase={setSelectedCaseId}
+            onOpenCase={setSelectedCase}
           />
         ) : (
           <p className="empty-state">No cases recorded yet.</p>
