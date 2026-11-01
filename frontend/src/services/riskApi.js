@@ -6,13 +6,14 @@ const API_BASE_URL =
     ? 'http://127.0.0.1:8000'
     : `${window.location.protocol}//${window.location.hostname}:8000`);
 const REQUEST_TIMEOUT_MS = 15_000;
+const OVERVIEW_TIMEOUT_MS = 180_000;
+const RAG_TIMEOUT_MS = 180_000;
 
 // Detect network errors when the backend cannot be reached.
 export function isNetworkError(error) {
   return (
     error instanceof TypeError ||
-    error?.name === 'AbortError' ||
-    /failed to fetch|networkerror|load failed|timed out/i.test(error?.message || '')
+    /failed to fetch|networkerror|load failed/i.test(error?.message || '')
   );
 }
 
@@ -20,6 +21,10 @@ export function friendlyErrorMessage(
   error,
   fallback = 'Something went wrong.'
 ) {
+  if (error?.name === 'TimeoutError') {
+    return `${error.message}. The API may still be running; check its terminal output or retry.`;
+  }
+
   if (isNetworkError(error)) {
     const apiLocation = API_BASE_URL || 'the same-origin API proxy';
     return `Backend unreachable at ${apiLocation}. Start the API and try again.`;
@@ -48,12 +53,17 @@ export const mockOverview = {
     { month: 'Oct 2026', count: 1 },
   ],
   recent_cases: [],
+  transaction_analytics: null,
   isMock: true,
 };
 
-async function request(path, options = {}) {
+async function request(
+  path,
+  options = {},
+  timeoutMs = REQUEST_TIMEOUT_MS
+) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   let response;
 
   try {
@@ -67,7 +77,11 @@ async function request(path, options = {}) {
     });
   } catch (error) {
     if (error?.name === 'AbortError') {
-      throw new Error(`Request timed out after ${REQUEST_TIMEOUT_MS / 1000} seconds`);
+      const timeoutError = new Error(
+        `Request timed out after ${timeoutMs / 1000} seconds`
+      );
+      timeoutError.name = 'TimeoutError';
+      throw timeoutError;
     }
 
     throw error;
@@ -89,25 +103,28 @@ async function request(path, options = {}) {
   return response.json();
 }
 
-function postJson(path, payload) {
+function postJson(path, payload, timeoutMs = REQUEST_TIMEOUT_MS) {
   return request(path, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
-  });
+  }, timeoutMs);
 }
 
 export async function getOverview({ useMock = true } = {}) {
   try {
-    return await request('/api/overview');
+    return await request('/api/overview', {}, OVERVIEW_TIMEOUT_MS);
   } catch (error) {
     if (!useMock) {
       throw error;
     }
 
-    return mockOverview;
+    return {
+      ...mockOverview,
+      fallbackReason: error?.message || 'The Overview API request failed.',
+    };
   }
 }
 
@@ -176,17 +193,25 @@ export async function investigateTransaction({
 }
 
 export async function askCompliance(question, topK = 5) {
-  return postJson('/compliance/query', {
-    question,
-    top_k: topK,
-  });
+  return postJson(
+    '/compliance/query',
+    {
+      question,
+      top_k: topK,
+    },
+    RAG_TIMEOUT_MS
+  );
 }
 
 export async function askRag(question, topK = 5) {
-  return postJson('/rag/query', {
-    question,
-    top_k: topK,
-  });
+  return postJson(
+    '/rag/query',
+    {
+      question,
+      top_k: topK,
+    },
+    RAG_TIMEOUT_MS
+  );
 }
 
 export async function uploadDocument(file) {

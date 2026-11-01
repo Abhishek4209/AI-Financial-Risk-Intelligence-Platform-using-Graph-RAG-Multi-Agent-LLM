@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from src.api import auth, middleware, schemas
 from src.database import models, postgres, redis as redis_module
+from src.services.paysim_analytics import PaySimAnalyticsError
 
 
 routes = importlib.import_module("src.api.routes")
@@ -318,9 +319,24 @@ class FakeSession:
 
 def test_case_customer_overview_and_crud_routes(monkeypatch):
     session = FakeSession()
+    paysim_analytics = {
+        "source": "PaySim",
+        "is_synthetic": True,
+        "status": "available",
+        "total_transactions": 2,
+        "fraud_transaction_count": 1,
+        "fraud_transaction_rate": 0.5,
+    }
+    monkeypatch.setattr(
+        routes,
+        "get_paysim_analytics",
+        lambda: paysim_analytics,
+    )
     overview = routes.overview_route(session)
     assert overview["total_cases"] == 3
     assert overview["open_cases"] == 2
+    assert overview["total_transactions"] == 8
+    assert overview["transaction_analytics"] == paysim_analytics
     assert overview["exposure_under_review"] == 125.5
     assert overview["case_breakdown"] == {"high": 2, "low": 1}
     assert overview["monthly_case_trend"] == [{"month": "Jan 2025", "count": 3}]
@@ -367,6 +383,28 @@ def test_case_customer_overview_and_crud_routes(monkeypatch):
             session,
         )
     assert blank_customer.value.status_code == 422
+
+
+def test_overview_retains_postgres_metrics_when_paysim_is_unavailable(
+    monkeypatch,
+):
+    session = FakeSession()
+
+    def unavailable():
+        raise PaySimAnalyticsError(
+            "The configured PaySim CSV file is missing."
+        )
+
+    monkeypatch.setattr(routes, "get_paysim_analytics", unavailable)
+
+    overview = routes.overview_route(session)
+
+    assert overview["total_cases"] == 3
+    assert overview["open_cases"] == 2
+    assert overview["total_transactions"] == 8
+    assert overview["case_breakdown"] == {"high": 2, "low": 1}
+    assert overview["transaction_analytics"]["status"] == "unavailable"
+    assert "missing" in overview["transaction_analytics"]["error"]
 
 
 def test_database_models_and_sqlite_relationships():

@@ -55,25 +55,57 @@ Checks PostgreSQL, Redis, and Neo4j connectivity.
 Return ‘503 Service Unavailable‘ when a required dependency is unavailable.
 ## Overview and Cases
 ### ‘GET /api/overview‘
-Returns dashboard portfolio metrics.
+Returns operational case metrics from PostgreSQL and separate PaySim
+transaction analytics from the local synthetic CSV dataset. PaySim is read in
+100,000-row Pandas chunks, and successful aggregates are cached in process for
+up to five minutes. The response includes the aggregate refresh timestamp;
+it does not import PaySim rows into PostgreSQL or create investigation cases.
+
+Set ‘PAYSIM_CSV_PATH‘ to select a CSV inside
+‘data/raw/Fraud/PaySim Financial Transactions‘. The default is
+‘PS_20174392719_1491204439457_log.csv‘. The API does not accept a filesystem
+path from clients. Missing or invalid PaySim data is reported in the
+‘transaction_analytics.status‘ and ‘transaction_analytics.error‘ fields while
+PostgreSQL case metrics remain available.
+
+‘total_transactions‘ remains the operational PostgreSQL transaction count for
+backwards compatibility. Dataset-level counts and fraud measures are nested
+under ‘transaction_analytics‘.
 ‘‘‘json
 {
-  "portfolio_risk_score": 68,
-  "exposure_under_review": 24.8,
-  "open_cases": 42,
-  "case_breakdown": {
-    "high": 8,
-    "medium": 19,
-    "low": 15
+  "total_cases": 2,
+  "open_cases": 1,
+  "total_transactions": 25,
+  "transaction_analytics": {
+    "source": "PaySim",
+    "is_synthetic": true,
+    "status": "available",
+    "total_transactions": 2,
+    "total_amount": 150.0,
+    "fraud_transaction_count": 1,
+    "fraud_transaction_rate": 0.5,
+    "fraud_transaction_amount": 100.0,
+    "transaction_type_breakdown": {
+      "PAYMENT": 1,
+      "TRANSFER": 1
+    },
+    "refreshed_at": "2026-11-01T10:00:00+00:00",
+    "cache_ttl_seconds": 300
   },
-  "trend": [62, 58, 61, 49, 43, 42.6],
-  "distribution": {
-    "low": 48.2,
-    "medium": 24.9,
-    "high": 13.3
-  }
+  "exposure_under_review": 100.0,
+  "case_breakdown": {
+    "high": 1,
+    "informational": 1
+  },
+  "monthly_case_trend": [
+    { "month": "Oct 2026", "count": 2 }
+  ],
+  "recent_cases": []
 }
 ‘‘‘
+The values above are illustrative and are not the current PaySim dataset totals.
+Operational exposure sums each PostgreSQL transaction linked to at least one
+open case once, even when multiple open cases reference that transaction.
 ### ‘GET /api/cases‘
 Lists risk cases.
 Supported query parameters:

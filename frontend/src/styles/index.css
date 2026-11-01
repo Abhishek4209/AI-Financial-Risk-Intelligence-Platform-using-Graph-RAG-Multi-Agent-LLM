@@ -417,6 +417,64 @@ button {
   gap: 15px;
 }
 
+.paysim-panel {
+  margin-bottom: 18px;
+}
+
+.paysim-refresh {
+  color: #808980;
+  font-size: 10px;
+  text-align: right;
+}
+
+.paysim-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.paysim-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  padding: 13px;
+  background: var(--background);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+}
+
+.paysim-stat span,
+.paysim-stat small {
+  color: #808980;
+  font-size: 10px;
+}
+
+.paysim-stat strong {
+  color: var(--text);
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+
+.paysim-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.paysim-breakdown span {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  padding: 7px 10px;
+  color: var(--text);
+  background: var(--background);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-size: 10px;
+}
+
 .metric-card,
 .panel {
   background: var(--surface);
