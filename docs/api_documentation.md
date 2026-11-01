@@ -104,6 +104,14 @@ Returns:
 - Risk history
 - Associated cases
 - Linked documents
+### ‘POST /api/customers‘
+Creates a customer in the workspace.
+‘‘‘json
+{
+  "name": "Ada Lovelace",
+  "segment": "Retail"
+}
+‘‘‘
 ## Documents
 ### ‘POST /api/documents‘
 Uploads a PDF, DOCX, XLSX, CSV, or image for asynchronous ingestion.
@@ -232,6 +240,12 @@ Results must distinguish:
 ## RAG and Graph Queries
 ### ‘POST /api/rag/query‘
 Queries trusted financial and regulatory documents using basic or hybrid retrieval.
+Responses include `question`, `answer`, `evidence`, `grounding_status`, and
+`limitations`, alongside the compatibility fields `sources`, `grounded`, and
+`evidence_sufficient`. Evidence entries include the available document name,
+section, page, and retrieved text. If no directly relevant evidence supports an
+answer, `answer` is `Insufficient evidence.` and `grounding_status` is
+`Insufficient evidence`.
 ‘‘‘json
 {
   "question": "What are the applicable KYC requirements?",

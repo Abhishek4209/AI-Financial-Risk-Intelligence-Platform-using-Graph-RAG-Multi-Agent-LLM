@@ -120,7 +120,12 @@ def test_api_schema_validation_and_defaults():
         schemas.RagQueryRequest(question="q", top_k=0)
     with pytest.raises(Exception):
         schemas.ComplianceQueryRequest(question="q", top_k=21)
-    assert schemas.RagQueryResponse(answer="x", grounded=True).evidence_sufficient
+    assert schemas.RagQueryResponse(
+        question="q",
+        answer="x",
+        grounding_status="Grounded",
+        grounded=True,
+    ).evidence_sufficient
     assert schemas.DocumentUploadResponse(
         document_id="d",
         status="indexed",
@@ -347,6 +352,21 @@ def test_case_customer_overview_and_crud_routes(monkeypatch):
     with pytest.raises(HTTPException) as missing_customer:
         routes.get_customer_route("absent", session)
     assert missing_customer.value.status_code == 404
+
+    customer_request = schemas.CustomerCreateRequest(
+        name="  Ada Lovelace  ", segment="  Retail  "
+    )
+    customer = routes.create_customer_route(customer_request, session)
+    assert customer.name == "Ada Lovelace"
+    assert customer.segment == "Retail"
+    assert customer.id
+    assert session.added[-1] is customer
+    with pytest.raises(HTTPException) as blank_customer:
+        routes.create_customer_route(
+            schemas.CustomerCreateRequest(name="   "),
+            session,
+        )
+    assert blank_customer.value.status_code == 422
 
 
 def test_database_models_and_sqlite_relationships():

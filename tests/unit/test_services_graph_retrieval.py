@@ -156,6 +156,45 @@ def test_reranker_model_and_deterministic_fallback(monkeypatch):
     assert reranker.rerank("fraud", [], top_k=2) == []
     assert reranker._fallback_rerank("   ", documents, 2) == documents[:2]
 
+    table_of_contents = _doc(
+        "TABLE OF CONTENTS Form 10-K Item Number Page PART I 1. Business 1 "
+        "1A. Risk Factors 22 1C. Cybersecurity 37",
+        source_file="DOC-01_American_Express_2025_Annual_Report.pdf",
+        page=17,
+        section="Table of Contents",
+    )
+    supporting_passage = _doc(
+        "The Technology, Resiliency and Data Risk Committee provides "
+        "oversight and governance for information security risk management "
+        "activities, including cybersecurity risks and incidents.",
+        source_file="DOC-01_American_Express_2025_Annual_Report.pdf",
+        page=55,
+        page_label="56",
+        section="Cybersecurity",
+    )
+    monkeypatch.setattr(
+        reranker,
+        "_get_cross_encoder",
+        lambda name: SimpleNamespace(
+            predict=lambda pairs: [0.99, 0.1]
+        ),
+    )
+    assert reranker.rerank(
+        "How does American Express oversee cybersecurity risks?",
+        [table_of_contents, supporting_passage],
+        top_k=2,
+    ) == [supporting_passage, table_of_contents]
+    monkeypatch.setattr(
+        reranker,
+        "_get_cross_encoder",
+        lambda name: (_ for _ in ()).throw(RuntimeError("model unavailable")),
+    )
+    assert reranker.rerank(
+        "How does American Express oversee cybersecurity risks?",
+        [table_of_contents, supporting_passage],
+        top_k=2,
+    ) == [supporting_passage, table_of_contents]
+
 
 def test_self_rag_requires_topic_and_action_and_checks_support():
     query = "How should fraud controls be managed?"
@@ -427,7 +466,11 @@ def test_rag_service_short_circuits_missing_evidence_and_generates_when_grounded
     monkeypatch.setattr(
         rag_service,
         "generate_answer",
-        lambda query, docs, provider=None: {"answer": "grounded", "sources": ["RBI"]},
+        lambda query, docs, provider=None: {
+            "answer": "grounded",
+            "sources": ["RBI"],
+            "grounded": True,
+        },
     )
     result = rag_service.answer_question("  fraud policy ", top_k=2, provider="local")
     assert result["answer"] == "grounded"
@@ -441,11 +484,88 @@ def test_rag_service_short_circuits_missing_evidence_and_generates_when_grounded
         lambda query, docs: {"documents": [], "evidence_sufficient": False},
     )
     insufficient = rag_service.answer_question("fraud policy")
-    assert insufficient["grounded"] is True
+    assert insufficient["answer"] == "Insufficient evidence."
+    assert insufficient["grounded"] is False
+    assert insufficient["grounding_status"] == "Insufficient evidence"
+    assert insufficient["evidence"] == []
     assert insufficient["reranked_count"] == 0
     for question, top_k in (("", 5), ("what", 0), ("what", True), (None, 5)):
         with pytest.raises(ValueError):
             rag_service.answer_question(question, top_k=top_k)
+
+
+def test_rag_service_uses_amex_body_evidence_instead_of_table_of_contents(
+    monkeypatch,
+):
+    question = "How does American Express oversee cybersecurity risks?"
+    search_results = []
+    table_of_contents = _doc(
+        "TABLE OF CONTENTS Form 10-K Item Number Page PART I 1. Business 1 "
+        "1A. Risk Factors 22 1C. Cybersecurity 37 7. Management's Discussion "
+        "and Analysis 42",
+        source_file="DOC-01_American_Express_2025_Annual_Report.pdf",
+        page=17,
+        section="Table of Contents",
+    )
+    supporting_passage = _doc(
+        "The Technology, Resiliency and Data Risk Committee provides "
+        "oversight and governance for information security risk management "
+        "activities, including cybersecurity risks and incidents.",
+        source_file="DOC-01_American_Express_2025_Annual_Report.pdf",
+        page=55,
+        page_label="56",
+        section="Cybersecurity",
+    )
+    answer_documents = []
+    search_results[:] = [table_of_contents, supporting_passage]
+    monkeypatch.setattr(rag_service, "expand_query", lambda query: [query])
+    monkeypatch.setattr(
+        rag_service,
+        "vector_search",
+        lambda query, top_k, backend=None: search_results,
+    )
+    monkeypatch.setattr(
+        reranker,
+        "_get_cross_encoder",
+        lambda name: SimpleNamespace(
+            predict=lambda pairs: [
+                0.99 if "table of contents" in text.lower() else 0.1
+                for _, text in pairs
+            ]
+        ),
+    )
+
+    def generate_answer(query, documents, provider=None):
+        answer_documents.extend(documents)
+        return {
+            "answer": (
+                "The committee provides oversight and governance for "
+                "information security risk management."
+            ),
+            "sources": ["DOC-01_American_Express_2025_Annual_Report.pdf, page 56"],
+            "grounded": True,
+        }
+
+    monkeypatch.setattr(rag_service, "generate_answer", generate_answer)
+    result = rag_service.answer_question(question, top_k=2)
+
+    assert answer_documents == [supporting_passage]
+    assert result["question"] == question
+    assert result["grounding_status"] == "Grounded"
+    assert result["evidence"][0] == {
+        "document": "DOC-01_American_Express_2025_Annual_Report.pdf",
+        "section": "Cybersecurity",
+        "page": "56",
+        "text": supporting_passage.page_content,
+    }
+
+    answer_documents.clear()
+    search_results[:] = [table_of_contents]
+    insufficient = rag_service.answer_question(question, top_k=2)
+    assert insufficient["answer"] == "Insufficient evidence."
+    assert insufficient["grounding_status"] == "Insufficient evidence"
+    assert insufficient["evidence"] == []
+    assert answer_documents == []
 
 
 def test_vector_database_backend_dispatch(monkeypatch):

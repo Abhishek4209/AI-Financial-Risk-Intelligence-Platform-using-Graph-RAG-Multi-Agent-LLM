@@ -83,6 +83,14 @@ def test_fraud_artifact_normalization_loading_and_thresholds(tmp_path, monkeypat
 
 def test_fraud_predictions_validate_inputs_and_encode_ieee(monkeypatch, tmp_path):
     model = FakeModel((0.1, 0.91))
+    expected_drivers = [
+        {"feature": "amount", "feature_value": 5.0, "shap_value": 0.4}
+    ]
+    monkeypatch.setattr(
+        fraud_detection,
+        "explain_prediction",
+        lambda model, features, top_k: expected_drivers,
+    )
     paysim_artifact = {
         "model": model,
         "feature_columns": ["step", "amount", "type_TRANSFER"],
@@ -93,6 +101,7 @@ def test_fraud_predictions_validate_inputs_and_encode_ieee(monkeypatch, tmp_path
     )
     assert result["risk_level"] == "HIGH"
     assert result["fraud_risk_score"] == 0.91
+    assert result["shap_drivers"] == expected_drivers
     assert model.received.columns.tolist() == paysim_artifact["feature_columns"]
     with pytest.raises(ValueError, match="no recorded feature_columns"):
         fraud_detection.predict_paysim_fraud_risk(
@@ -122,10 +131,15 @@ def test_fraud_predictions_validate_inputs_and_encode_ieee(monkeypatch, tmp_path
         lambda: {"category": Encoder()},
     )
     encoded = fraud_detection._build_ieee_frame(
-        {"category": "known", "amount": "invalid"},
+        {"category": "known", "amount": 5},
         ["category", "amount"],
     )
-    assert encoded.iloc[0].tolist() == [3, -999]
+    assert encoded.iloc[0].tolist() == [3, 5]
+    with pytest.raises(ValueError, match="feature 'amount' must be numeric"):
+        fraud_detection._build_ieee_frame(
+            {"category": "known", "amount": "invalid"},
+            ["category", "amount"],
+        )
     with pytest.raises(ValueError, match="Unknown category"):
         fraud_detection._build_ieee_frame(
             {"category": "bad"}, ["category"]

@@ -1,8 +1,11 @@
 
 import { Activity, ArrowUpRight, ShieldAlert, Sparkles } from 'lucide-react'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useRiskOverview } from '../hooks/useRiskOverview'
 import {
   BackendOfflineNotice,
+  CaseDetailsModal,
   PriorityCasesTable,
   RiskDistributionDonut,
   ScoreRing,
@@ -32,11 +35,18 @@ function toCaseRow(item) {
     score: item.severity,
     status: item.status,
     tone: severityTone(item.severity),
+    case_type: item.case_type,
+    severity: item.severity,
+    customer_id: item.customer_id,
+    summary: item.summary,
+    created_at: item.created_at,
   }
 }
 
 export default function Overview() {
   const { data, loading, error } = useRiskOverview()
+  const [selectedCase, setSelectedCase] = useState(null)
+  const navigate = useNavigate()
 
   if (loading) {
     return (
@@ -93,7 +103,11 @@ export default function Overview() {
             {data.total_cases} cases are open.
           </p>
         </div>
-        <button className="primary-button">
+        <button
+          type="button"
+          className="primary-button"
+          onClick={() => navigate('/fraud-detection')}
+        >
           <Sparkles size={16} />
           Run new analysis
         </button>
@@ -196,11 +210,20 @@ export default function Overview() {
         </div>
 
         {data.recent_cases.length ? (
-          <PriorityCasesTable cases={data.recent_cases.map(toCaseRow)} />
+          <PriorityCasesTable
+            cases={data.recent_cases.map(toCaseRow)}
+            onOpenCase={setSelectedCaseId}
+          />
         ) : (
           <p className="empty-state">No cases recorded yet.</p>
         )}
       </section>
+      {selectedCase && (
+        <CaseDetailsModal
+          caseDetails={selectedCase}
+          onClose={() => setSelectedCase(null)}
+        />
+      )}
     </section>
   )
 }

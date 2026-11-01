@@ -38,6 +38,15 @@ def test_response_formatting_keyword_and_support_helpers():
         "empty.pdf",
         "credit.pdf",
     ]
+    assert response_generator._document_source(
+        _doc(
+            "section content",
+            source_file="report.pdf",
+            section="Cybersecurity",
+            page=55,
+            page_label="56",
+        )
+    ) == "report.pdf, section Cybersecurity, page 56"
     assert response_generator._keywords("Fraud, controls and RBI policies!") == {
         "fraud", "control", "rbi", "policie"
     }

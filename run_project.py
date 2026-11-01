@@ -170,7 +170,7 @@ def start_frontend():
 
     frontend_env = os.environ.copy()
 
-    frontend_env["VITE_API_URL"] = BACKEND_URL
+    frontend_env.pop("VITE_API_URL", None)
 
     command = [
         str(npm_path),

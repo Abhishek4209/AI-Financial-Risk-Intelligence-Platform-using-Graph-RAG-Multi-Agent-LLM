@@ -18,9 +18,10 @@ import {
   Users,
   X,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { useTheme } from './hooks/useTheme'
+import { Modal } from './components'
 import { ToastProvider } from './hooks/useToast'
 import Overview from './pages/Overview'
 import RuntimeDashboard from './pages/RuntimeDashboard'
@@ -82,7 +83,25 @@ function AnimatedRoutes() {
 
 function App() {
   const [mobileNav, setMobileNav] = useState(false)
+  const [dialog, setDialog] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
   const { theme, toggleTheme } = useTheme()
+
+  useEffect(() => {
+    function handleShortcut(event) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setDialog('search')
+      }
+    }
+
+    window.addEventListener('keydown', handleShortcut)
+    return () => window.removeEventListener('keydown', handleShortcut)
+  }, [])
+
+  const matchingPages = NAV_ITEMS.filter((item) =>
+    item.label.toLowerCase().includes(searchQuery.trim().toLowerCase()),
+  )
 
   return (
     <ToastProvider>
@@ -107,14 +126,19 @@ function App() {
             </button>
           </div>
 
-          <div className="workspace-switcher">
+          <button
+            type="button"
+            className="workspace-switcher"
+            onClick={() => setDialog('workspace')}
+            aria-label="Select workspace"
+          >
             <span className="workspace-avatar">A</span>
             <span>
               <b>Atlas Financial</b>
               <small>Enterprise workspace</small>
             </span>
             <ChevronDown size={15} />
-          </div>
+          </button>
 
           <nav className="main-nav" aria-label="Main navigation">
             <p className="nav-label">Workspace</p>
@@ -140,12 +164,20 @@ function App() {
 
             <p className="nav-label nav-label--spaced">System</p>
 
-            <button className="nav-item">
+            <button
+              type="button"
+              className="nav-item"
+              onClick={() => setDialog('settings')}
+            >
               <SlidersHorizontal size={18} />
               <span>Settings</span>
             </button>
 
-            <button className="nav-item">
+            <button
+              type="button"
+              className="nav-item"
+              onClick={() => setDialog('help')}
+            >
               <CircleHelp size={18} />
               <span>Help center</span>
             </button>
@@ -157,14 +189,19 @@ function App() {
               All systems operational
             </div>
 
-            <div className="user-row">
-              <div className="user-avatar">JM</div>
+            <button
+              type="button"
+              className="user-row"
+              onClick={() => setDialog('profile')}
+              aria-label="Open Abhishek Upadhyay profile"
+            >
+              <div className="user-avatar">AU</div>
               <span>
-                <b>Jordan Miller</b>
+                <b>Abhishek Upadhyay</b>
                 <small>Risk lead</small>
               </span>
               <MoreHorizontal size={17} />
-            </div>
+            </button>
           </div>
         </aside>
 
@@ -181,7 +218,12 @@ function App() {
             <Breadcrumb />
 
             <div className="topbar-actions">
-              <button className="search-button">
+              <button
+                type="button"
+                className="search-button"
+                onClick={() => setDialog('search')}
+                aria-label="Search pages"
+              >
                 <Search size={17} />
                 <span>Search anything</span>
                 <kbd>Cmd K</kbd>
@@ -198,17 +240,134 @@ function App() {
               <button
                 className="icon-button notification-button"
                 aria-label="Notifications"
+                onClick={() => setDialog('notifications')}
               >
                 <Bell size={19} />
                 <i />
               </button>
 
-              <div className="topbar-avatar">JM</div>
+              <button
+                type="button"
+                className="topbar-avatar"
+                aria-label="Open Abhishek Upadhyay profile"
+                onClick={() => setDialog('profile')}
+              >
+                AU
+              </button>
             </div>
           </header>
 
           <AnimatedRoutes />
         </main>
+
+        {dialog === 'search' && (
+          <Modal title="Search workspace" onClose={() => setDialog(null)}>
+            <label className="risk-form__field">
+              <span>Find a page</span>
+              <input
+                type="search"
+                autoFocus
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search pages"
+              />
+            </label>
+            <nav className="modal-link-list" aria-label="Search results">
+              {matchingPages.map(({ label, path, icon: Icon }) => (
+                <NavLink
+                  key={path}
+                  to={path}
+                  onClick={() => {
+                    setDialog(null)
+                    setSearchQuery('')
+                  }}
+                >
+                  <Icon size={16} />
+                  {label}
+                </NavLink>
+              ))}
+              {matchingPages.length === 0 && (
+                <p className="empty-state">No matching pages.</p>
+              )}
+            </nav>
+          </Modal>
+        )}
+
+        {dialog === 'settings' && (
+          <Modal title="Settings" onClose={() => setDialog(null)}>
+            <div className="settings-row">
+              <div>
+                <strong>Appearance</strong>
+                <p>Current theme: {theme}</p>
+              </div>
+              <button
+                type="button"
+                className="select-button"
+                onClick={toggleTheme}
+              >
+                {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+                Switch to {theme === 'dark' ? 'light' : 'dark'} theme
+              </button>
+            </div>
+          </Modal>
+        )}
+
+        {dialog === 'help' && (
+          <Modal title="Help center" onClose={() => setDialog(null)}>
+            <p className="modal-copy">
+              Choose a workspace page to get started. Risk scores are decision
+              support and should be reviewed by an analyst.
+            </p>
+            <nav className="modal-link-list" aria-label="Help page links">
+              {NAV_ITEMS.map(({ label, path, icon: Icon }) => (
+                <NavLink key={path} to={path} onClick={() => setDialog(null)}>
+                  <Icon size={16} />
+                  {label}
+                </NavLink>
+              ))}
+            </nav>
+          </Modal>
+        )}
+
+        {dialog === 'workspace' && (
+          <Modal title="Workspace" onClose={() => setDialog(null)}>
+            <div className="workspace-option" aria-current="true">
+              <span className="workspace-avatar">A</span>
+              <span>
+                <strong>Atlas Financial</strong>
+                <small>Active workspace</small>
+              </span>
+            </div>
+            <p className="modal-copy">
+              This is the only workspace configured for this account.
+            </p>
+          </Modal>
+        )}
+
+        {dialog === 'notifications' && (
+          <Modal title="Notifications" onClose={() => setDialog(null)}>
+            <p className="empty-state">You’re all caught up. No new notifications.</p>
+          </Modal>
+        )}
+
+        {dialog === 'profile' && (
+          <Modal title="Your profile" onClose={() => setDialog(null)}>
+            <dl className="detail-list">
+              <div>
+                <dt>Name</dt>
+                <dd>Abhishek Upadhyay</dd>
+              </div>
+              <div>
+                <dt>Role</dt>
+                <dd>Risk lead</dd>
+              </div>
+              <div>
+                <dt>Workspace</dt>
+                <dd>Atlas Financial</dd>
+              </div>
+            </dl>
+          </Modal>
+        )}
       </div>
     </ToastProvider>
   )

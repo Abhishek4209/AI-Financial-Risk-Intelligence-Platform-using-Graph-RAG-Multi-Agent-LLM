@@ -95,9 +95,13 @@ Install and start the React frontend:
 ‘‘‘powershell
 cd frontend
 npm install
-$env:VITE_API_URL = "http://localhost:8000"
 npm run dev
 ‘‘‘
+The Vite development server proxies API requests to `http://127.0.0.1:8000`.
+For a production build where the API is not on the same host at port 8000, set
+`VITE_API_URL` to an address reachable by the browser (for example,
+`http://<server-hostname>:8000`), not `localhost` when opening the frontend
+from another device.
 Build production assets:
 ‘‘‘powershell
 npm run build
