@@ -86,6 +86,38 @@ def _document_text(document: Any) -> str:
     return str(content).lower()
 
 
+def is_table_of_contents(document: Any) -> bool:
+    """Identify table-of-contents chunks that name topics without supporting them."""
+    metadata = getattr(document, "metadata", {}) or {}
+    section = str(metadata.get("section", "")).strip().lower()
+
+    if section in {"contents", "table of contents", "toc"}:
+        return True
+
+    text = str(getattr(document, "page_content", document))
+    heading = re.search(
+        r"\btable\s+of\s+contents\b",
+        text[:250],
+        re.IGNORECASE,
+    )
+
+    if not heading:
+        return False
+
+    following_text = text[heading.end():heading.end() + 500]
+
+    if re.search(r"\bitem\s+number\s+page\b", following_text, re.IGNORECASE):
+        return True
+
+    numbered_entries = sum(
+        bool(re.search(r"\b\d{1,3}\s*$", line.strip()))
+        and len(line.split()) <= 14
+        for line in following_text.splitlines()
+    )
+
+    return numbered_entries >= 3
+
+
 def _matches_terms(terms: set[str], text: str) -> set[str]:
     """Find whole-word or phrase matches in document text."""
     return {
@@ -118,6 +150,9 @@ def is_relevant(
 ) -> bool:
     """Check whether a document contains query-specific financial risk evidence."""
     if not query or not query.strip():
+        return False
+
+    if is_table_of_contents(document):
         return False
 
     text = _document_text(document)

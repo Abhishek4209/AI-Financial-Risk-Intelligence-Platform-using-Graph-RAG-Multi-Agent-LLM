@@ -7,6 +7,7 @@ from functools import lru_cache
 from typing import Any
 
 from src.retriever.query_rewriter import extract_keywords
+from src.retriever.self_rag import is_table_of_contents
 
 
 DEFAULT_RERANKER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
@@ -39,7 +40,10 @@ def _fallback_rerank(
     query_keywords = set(extract_keywords(query))
 
     if not query_keywords:
-        return documents[:top_k]
+        return sorted(
+            documents,
+            key=is_table_of_contents,
+        )[:top_k]
 
     scored_documents = []
 
@@ -56,7 +60,10 @@ def _fallback_rerank(
 
     ranked = sorted(
         scored_documents,
-        key=lambda item: item[1],
+        key=lambda item: (
+            not is_table_of_contents(item[0]),
+            item[1],
+        ),
         reverse=True,
     )
 
@@ -105,7 +112,10 @@ def rerank(
 
         ranked = sorted(
             zip(documents, scores),
-            key=lambda item: float(item[1]),
+            key=lambda item: (
+                not is_table_of_contents(item[0]),
+                float(item[1]),
+            ),
             reverse=True,
         )
 

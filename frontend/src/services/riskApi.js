@@ -1,10 +1,18 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV
+    ? ''
+    : typeof window === 'undefined'
+    ? 'http://127.0.0.1:8000'
+    : `${window.location.protocol}//${window.location.hostname}:8000`);
+const REQUEST_TIMEOUT_MS = 15_000;
 
 // Detect network errors when the backend cannot be reached.
 export function isNetworkError(error) {
   return (
     error instanceof TypeError ||
-    /failed to fetch|networkerror|load failed/i.test(error?.message || '')
+    error?.name === 'AbortError' ||
+    /failed to fetch|networkerror|load failed|timed out/i.test(error?.message || '')
   );
 }
 
@@ -13,7 +21,8 @@ export function friendlyErrorMessage(
   fallback = 'Something went wrong.'
 ) {
   if (isNetworkError(error)) {
-    return `Backend unreachable at ${API_BASE_URL}. Start the API and try again.`;
+    const apiLocation = API_BASE_URL || 'the same-origin API proxy';
+    return `Backend unreachable at ${apiLocation}. Start the API and try again.`;
   }
 
   return error?.message || fallback;
@@ -43,13 +52,28 @@ export const mockOverview = {
 };
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      Accept: 'application/json',
-      ...options.headers,
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+        ...options.headers,
+      },
+    });
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error(`Request timed out after ${REQUEST_TIMEOUT_MS / 1000} seconds`);
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
@@ -105,6 +129,14 @@ export async function getCustomers(params = {}) {
   return request('/api/customers' + suffix);
 }
 
+export async function getCustomer(customerId) {
+  return request(`/api/customers/${encodeURIComponent(customerId)}`);
+}
+
+export async function createCustomer(payload) {
+  return postJson('/api/customers', payload);
+}
+
 export async function assessCreditRisk({ dataset, applicant }) {
   return postJson('/predict/credit-risk', {
     dataset,
@@ -119,10 +151,15 @@ export async function assessFraud({ transaction, accountId }) {
   });
 }
 
-// Scores a transaction with saved local fraud models.
-export async function predictFraudModels({ transaction }) {
+export async function getIeeeFraudModelSchema() {
+  return request('/predict/fraud-models/ieee-cis/schema');
+}
+
+// Scores PaySim and IEEE-CIS with their separate model input schemas.
+export async function predictFraudModels({ transaction, ieeeFeatures }) {
   return postJson('/predict/fraud-models', {
     transaction,
+    ieee_features: ieeeFeatures,
   });
 }
 

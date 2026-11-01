@@ -22,15 +22,20 @@ from src.api.schemas import (
     ComplianceQueryRequest,
     CreditRiskRequest,
     CreditRiskResponse,
+    CustomerCreateRequest,
     DocumentUploadResponse,
+    FraudModelSchema,
+    FraudModelsRequest,
     FraudModelsResponse,
     FraudRequest,
     InvestigationRequest,
     RagQueryRequest,
+    RagQueryResponse,
 )
 from src.database.models import Customer, InvestigationCase, Transaction
 from src.database.postgres import get_db
 from src.ml_models.fraud_detection import (
+    get_ieee_feature_schema,
     load_fraud_artifact,
     predict_fraud_risk,
     predict_paysim_fraud_risk,
@@ -38,8 +43,10 @@ from src.ml_models.fraud_detection import (
 from src.services.document_service import ingest_document
 from src.services.notification_service import notify_case_created
 from src.utils.constants import FRAUD_MODEL_FILES, RAW_DATA_ROOT
+from src.utils.logger import get_logger
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
+logger = get_logger(__name__)
 
 
 @router.post("/predict/credit-risk", response_model=CreditRiskResponse)
@@ -73,7 +80,7 @@ def predict_fraud_route(request: FraudRequest):
 
 
 @router.post("/predict/fraud-models", response_model=FraudModelsResponse)
-def predict_fraud_models_route(request: FraudRequest):
+def predict_fraud_models_route(request: FraudModelsRequest):
     """Run compatible saved fraud models without calling RAG or an LLM."""
     predictions: list[dict[str, Any]] = []
 
@@ -81,6 +88,11 @@ def predict_fraud_models_route(request: FraudRequest):
         try:
             if dataset == "paysim":
                 result = predict_paysim_fraud_risk(request.transaction)
+            elif dataset == "ieee_cis":
+                result = predict_fraud_risk(
+                    request.ieee_features,
+                    dataset,
+                )
             else:
                 artifact = load_fraud_artifact(dataset)
                 feature_columns = artifact["feature_columns"]
@@ -119,11 +131,41 @@ def predict_fraud_models_route(request: FraudRequest):
                     "reason": safe_error_detail(exc),
                 }
             )
+        except Exception as exc:
+            if dataset != "ieee_cis":
+                raise
+            logger.exception("IEEE-CIS fraud model inference failed")
+            predictions.append(
+                {
+                    "dataset": dataset,
+                    "model_file": relative_path,
+                    "status": "incompatible",
+                    "reason": safe_error_detail(exc),
+                }
+            )
 
     return {
         "transaction_id": request.transaction.get("transaction_id"),
         "predictions": predictions,
     }
+
+
+@router.get(
+    "/predict/fraud-models/ieee-cis/schema",
+    response_model=FraudModelSchema,
+)
+def get_ieee_fraud_model_schema():
+    """Return the input schema derived from the saved IEEE-CIS artifacts."""
+    try:
+        return {
+            **get_ieee_feature_schema(),
+            "model_file": FRAUD_MODEL_FILES["ieee_cis"],
+        }
+    except (FileNotFoundError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=safe_error_detail(exc),
+        ) from exc
 
 
 @router.post("/investigation")
@@ -142,14 +184,14 @@ def investigate_route(request: InvestigationRequest):
         ) from exc
 
 
-@router.post("/rag/query")
+@router.post("/rag/query", response_model=RagQueryResponse)
 def rag_query_route(request: RagQueryRequest):
     from src.services.rag_service import answer_question
 
     return answer_question(request.question, top_k=request.top_k)
 
 
-@router.post("/compliance/query")
+@router.post("/compliance/query", response_model=RagQueryResponse)
 def compliance_query_route(request: ComplianceQueryRequest):
     return answer_compliance_question(
         request.question,
@@ -361,4 +403,30 @@ def get_customer_route(
             detail="Customer not found",
         )
 
+    return customer
+
+
+@router.post(
+    "/api/customers",
+    status_code=status.HTTP_201_CREATED,
+)
+def create_customer_route(
+    request: CustomerCreateRequest,
+    session: Session = Depends(get_db),
+):
+    customer = Customer(
+        id=str(uuid.uuid4()),
+        name=request.name.strip(),
+        segment=request.segment.strip() if request.segment else None,
+    )
+
+    if not customer.name:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Customer name must not be blank",
+        )
+
+    session.add(customer)
+    session.commit()
+    session.refresh(customer)
     return customer

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import math
 import pickle
 from functools import lru_cache
 from pathlib import Path
@@ -12,11 +13,30 @@ import joblib
 import pandas as pd
 
 from src.preprocessing.feature_engineering import build_paysim_features
+from src.ml_models.explainability import explain_prediction
 from src.utils.constants import FRAUD_MODEL_FILES, MODEL_ROOT
+from src.utils.logger import get_logger
 
 
 DEFAULT_PAYSIM_THRESHOLD = 0.5
+logger = get_logger(__name__)
 IEEE_ENCODER_FILE = MODEL_ROOT / "Fraud_models" / "ieee_categorical_encoders.pkl"
+IEEE_REQUIRED_FEATURES = (
+    "TransactionAmt",
+    "ProductCD",
+    "card1",
+    "card2",
+    "card3",
+    "card4",
+    "card5",
+    "card6",
+)
+IEEE_DERIVED_FEATURES = (
+    "transaction_hour",
+    "log_transaction_amt",
+    "has_device_info",
+    "email_domain_mismatch",
+)
 
 
 def _artifact_path(
@@ -99,6 +119,76 @@ def _load_ieee_encoders() -> Mapping[str, Any]:
     return encoders
 
 
+def _is_missing(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return not value.strip()
+    try:
+        return bool(pd.isna(value))
+    except (TypeError, ValueError):
+        return False
+
+
+def get_ieee_feature_schema(
+    artifact: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Describe the saved IEEE-CIS model inputs and training preprocessing."""
+    model_artifact = (
+        artifact if artifact is not None else load_fraud_artifact("ieee_cis")
+    )
+    feature_columns = [
+        str(column)
+        for column in model_artifact.get("feature_columns", [])
+    ]
+    if not feature_columns:
+        raise ValueError("IEEE-CIS artifact has no recorded feature_columns.")
+
+    missing = [
+        column for column in IEEE_REQUIRED_FEATURES
+        if column not in feature_columns
+    ]
+    if missing:
+        raise ValueError(
+            "IEEE-CIS model is missing expected transaction features: "
+            f"{missing}"
+        )
+
+    encoders = _load_ieee_encoders()
+    return {
+        "dataset": "ieee_cis",
+        "feature_count": len(feature_columns),
+        "missing_value_sentinel": -999,
+        "features": [
+            {
+                "name": str(column),
+                "input_type": (
+                    "category" if column in encoders else "number"
+                ),
+                "required": column in IEEE_REQUIRED_FEATURES,
+                "derived": column in IEEE_DERIVED_FEATURES,
+                "categories": (
+                    [str(value) for value in encoders[column].classes_]
+                    if column in encoders else []
+                ),
+            }
+            for column in feature_columns
+        ],
+        "raw_inputs": [
+            {
+                "name": "TransactionDT",
+                "input_type": "number",
+                "required": True,
+            },
+            {
+                "name": "DeviceInfo",
+                "input_type": "text",
+                "required": False,
+            },
+        ],
+    }
+
+
 def _score(model: Any, frame: pd.DataFrame) -> float:
     """Return the model probability for positive class 1."""
     probabilities = model.predict_proba(frame)
@@ -144,6 +234,26 @@ def _prediction_result(
     }
 
 
+def _add_shap_explanation(
+    result: dict[str, Any],
+    model: Any,
+    frame: pd.DataFrame,
+) -> dict[str, Any]:
+    try:
+        result["shap_drivers"] = explain_prediction(
+            model,
+            frame,
+            top_k=3,
+        )
+    except Exception as exc:
+        logger.exception("Fraud model SHAP explanation failed")
+        result["shap_drivers"] = []
+        result["shap_error"] = (
+            f"SHAP evidence is unavailable: {exc}"
+        )
+    return result
+
+
 def predict_paysim_fraud_risk(
     transaction: Mapping[str, Any],
     *,
@@ -165,44 +275,164 @@ def predict_paysim_fraud_risk(
     risk_score = _score(model_artifact["model"], frame)
     threshold = _get_threshold(model_artifact)
 
-    return _prediction_result("paysim", risk_score, threshold)
+    return _add_shap_explanation(
+        _prediction_result("paysim", risk_score, threshold),
+        model_artifact["model"],
+        frame,
+    )
 
 
 def _build_ieee_frame(
     features: Mapping[str, Any],
     feature_columns: list[str],
 ) -> pd.DataFrame:
-    """Build a numeric IEEE-CIS frame and encode raw string categories."""
+    """Apply the saved notebook preprocessing in the trained column order."""
+    encoders = _load_ieee_encoders()
+    prepared = dict(features)
+    required = [
+        column for column in IEEE_REQUIRED_FEATURES
+        if column in feature_columns and _is_missing(prepared.get(column))
+    ]
+    if required:
+        raise ValueError(
+            "IEEE-CIS requires these transaction features: "
+            f"{', '.join(required)}"
+        )
+
+    if not _is_missing(prepared.get("TransactionDT")):
+        transaction_dt = _numeric_feature(
+            "TransactionDT", prepared["TransactionDT"]
+        )
+        transaction_amount = _numeric_feature(
+            "TransactionAmt", prepared["TransactionAmt"]
+        )
+        if transaction_dt < 0:
+            raise ValueError("IEEE-CIS feature 'TransactionDT' must be non-negative.")
+        if transaction_amount < 0:
+            raise ValueError("IEEE-CIS feature 'TransactionAmt' must be non-negative.")
+
+        prepared["transaction_hour"] = (transaction_dt / 3600) % 24
+        prepared["log_transaction_amt"] = math.log1p(transaction_amount)
+        prepared["has_device_info"] = int(
+            not _is_missing(prepared.get("DeviceInfo"))
+        )
+        payer_email = _email_value(
+            "P_emaildomain", prepared.get("P_emaildomain"), encoders
+        )
+        recipient_email = _email_value(
+            "R_emaildomain", prepared.get("R_emaildomain"), encoders
+        )
+        prepared["email_domain_mismatch"] = int(
+            payer_email != recipient_email
+            or payer_email is None
+            or recipient_email is None
+        )
+    elif any(column in feature_columns for column in IEEE_DERIVED_FEATURES):
+        missing_derived = [
+            column for column in IEEE_DERIVED_FEATURES
+            if _is_missing(prepared.get(column))
+        ]
+        if missing_derived:
+            raise ValueError(
+                "IEEE-CIS needs TransactionDT to derive transaction_hour; "
+                "DeviceInfo may be blank. Provide all pre-engineered "
+                "features instead: "
+                f"{', '.join(missing_derived)}"
+            )
+
+    encoded_values: dict[str, float] = {}
+    for column in feature_columns:
+        value = prepared.get(column)
+        encoder = encoders.get(column)
+
+        if encoder is not None:
+            if _is_missing(value):
+                value = "missing"
+
+            if isinstance(value, str):
+                try:
+                    value = encoder.transform([value])[0]
+                except ValueError as exc:
+                    raise ValueError(
+                        f"Unknown category {value!r} for IEEE-CIS feature "
+                        f"{column!r}. Use a category from the saved training "
+                        "encoder."
+                    ) from exc
+            else:
+                category_code = _numeric_feature(column, value)
+                classes = getattr(encoder, "classes_", None)
+                if (
+                    category_code == -1
+                    and classes is not None
+                    and "missing" in [str(category) for category in classes]
+                ):
+                    value = encoder.transform(["missing"])[0]
+                else:
+                    value = category_code
+
+        if _is_missing(value):
+            encoded_values[column] = float("nan")
+            continue
+
+        encoded = _numeric_feature(column, value)
+        if encoder is not None:
+            classes = getattr(encoder, "classes_", None)
+            if classes is not None and (
+                not encoded.is_integer()
+                or encoded < 0
+                or encoded >= len(classes)
+            ):
+                raise ValueError(
+                    f"IEEE-CIS category code for {column!r} is invalid."
+                )
+        encoded_values[column] = encoded
+
     frame = pd.DataFrame(
-        [{column: features[column] for column in feature_columns}],
+        [encoded_values],
         columns=feature_columns,
     )
-
-    # Apply the saved training encoders only to string-valued categories.
-    # Numeric values are assumed to already be encoded.
-    encoders = _load_ieee_encoders() if any(
-        isinstance(features.get(column), str)
-        for column in feature_columns
-        if column in features
-    ) else {}
-
-    for column in feature_columns:
-        value = features[column]
-
-        if column in encoders and isinstance(value, str):
-            encoder = encoders[column]
-            try:
-                frame.at[0, column] = encoder.transform([value])[0]
-            except ValueError as exc:
-                raise ValueError(
-                    f"Unknown category {value!r} for IEEE-CIS feature "
-                    f"{column!r}. Use the same category mapping as training."
-                ) from exc
-
-    for column in frame.columns:
-        frame[column] = pd.to_numeric(frame[column], errors="coerce")
-
     return frame.fillna(-999)
+
+
+def _numeric_feature(column: str, value: Any) -> float:
+    if isinstance(value, bool):
+        raise ValueError(f"IEEE-CIS feature {column!r} must be numeric.")
+    try:
+        number = float(value)
+    except (OverflowError, TypeError, ValueError) as exc:
+        raise ValueError(
+            f"IEEE-CIS feature {column!r} must be numeric."
+        ) from exc
+    if not math.isfinite(number):
+        raise ValueError(
+            f"IEEE-CIS feature {column!r} must be a finite number."
+        )
+    return number
+
+
+def _email_value(
+    column: str,
+    value: Any,
+    encoders: Mapping[str, Any],
+) -> Any:
+    encoder = encoders.get(column)
+    if _is_missing(value):
+        return None
+    if isinstance(value, str):
+        return None if value == "missing" else value
+
+    classes = getattr(encoder, "classes_", None)
+    if classes is not None:
+        code = _numeric_feature(column, value)
+        if (
+            code == -1
+            and "missing" in [str(category) for category in classes]
+        ):
+            return None
+        if code.is_integer() and 0 <= code < len(classes):
+            category = str(classes[int(code)])
+            return None if category == "missing" else category
+    return value
 
 
 def predict_fraud_risk(
@@ -223,12 +453,14 @@ def predict_fraud_risk(
         raise ValueError(
             f"Artifact for {dataset!r} has no recorded feature_columns."
         )
+    if dataset == "ieee_cis":
+        feature_columns = [str(column) for column in feature_columns]
 
     missing = [
         column for column in feature_columns
         if column not in engineered_features
     ]
-    if missing:
+    if missing and dataset != "ieee_cis":
         raise ValueError(
             f"Missing required engineered features for {dataset!r}: "
             f"{missing[:20]}"
@@ -253,4 +485,8 @@ def predict_fraud_risk(
     risk_score = _score(model_artifact["model"], frame)
     threshold = _get_threshold(model_artifact)
 
-    return _prediction_result(dataset, risk_score, threshold)
+    return _add_shap_explanation(
+        _prediction_result(dataset, risk_score, threshold),
+        model_artifact["model"],
+        frame,
+    )

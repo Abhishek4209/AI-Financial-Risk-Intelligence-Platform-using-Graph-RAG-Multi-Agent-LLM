@@ -23,6 +23,9 @@ class CreditRiskResponse(BaseModel):
 class FraudRequest(BaseModel):
     transaction: dict[str, Any]
     account_id: str | None = None
+class FraudModelsRequest(BaseModel):
+    transaction: dict[str, Any]
+    ieee_features: dict[str, Any] = Field(default_factory=dict)
 class FraudResponse(BaseModel):
     transaction_id: str | None = None
     model: dict[str, Any]
@@ -38,10 +41,29 @@ class FraudModelPrediction(BaseModel):
     threshold: float | None = None
     risk_level: str | None = None
     interpretation: str | None = None
+    shap_drivers: list[dict[str, Any]] = Field(default_factory=list)
+    shap_error: str | None = None
     reason: str | None = None
 class FraudModelsResponse(BaseModel):
     transaction_id: str | None = None
     predictions: list[FraudModelPrediction]
+class FraudModelFeature(BaseModel):
+    name: str
+    input_type: Literal["number", "category"]
+    required: bool
+    derived: bool = False
+    categories: list[str] = Field(default_factory=list)
+class FraudModelRawInput(BaseModel):
+    name: str
+    input_type: Literal["number", "text"]
+    required: bool
+class FraudModelSchema(BaseModel):
+    dataset: str
+    model_file: str
+    feature_count: int
+    missing_value_sentinel: float
+    features: list[FraudModelFeature]
+    raw_inputs: list[FraudModelRawInput]
 class InvestigationRequest(BaseModel):
     transaction: dict[str, Any]
     account_id: str | None = None
@@ -50,7 +72,11 @@ class RagQueryRequest(BaseModel):
     question: str
     top_k: int = Field(default=5, ge=1, le=20)
 class RagQueryResponse(BaseModel):
+    question: str
     answer: str
+    evidence: list[dict[str, Any]] = Field(default_factory=list)
+    grounding_status: Literal["Grounded", "Insufficient evidence"]
+    limitations: list[str] = Field(default_factory=list)
     sources: list[str] = Field(default_factory=list)
     grounded: bool
     evidence_sufficient: bool = True
@@ -67,6 +93,9 @@ class CaseCreateRequest(BaseModel):
     customer_id: str
     case_type: str
     reason: str
+class CustomerCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+    segment: str | None = Field(default=None, max_length=64)
 class CaseResponse(BaseModel):
     id: str
     customer_id: str | None = None

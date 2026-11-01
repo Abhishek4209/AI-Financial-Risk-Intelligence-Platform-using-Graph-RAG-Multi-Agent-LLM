@@ -45,7 +45,13 @@ def _document_source(document: Any) -> str:
         or "Unknown source"
     )
 
-    page = metadata.get("page")
+    section = metadata.get("section")
+    if section:
+        source = "%s, section %s" % (source, section)
+
+    page = metadata.get("page_label")
+    if page is None:
+        page = metadata.get("page")
 
     if page is not None:
         source = "%s, page %s" % (source, page)
