@@ -14,3 +14,4 @@ frontend/node_modules/
 frontend/dist/
 .env
 .coverage
+PROJECT_INTERVIEW_KNOWLEDGE_BASE.ipynb
