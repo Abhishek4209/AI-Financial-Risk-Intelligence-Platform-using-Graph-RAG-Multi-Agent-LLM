@@ -13,7 +13,8 @@ const RAG_TIMEOUT_MS = 180_000;
 export function isNetworkError(error) {
   return (
     error instanceof TypeError ||
-    /failed to fetch|networkerror|load failed/i.test(error?.message || '')
+    error?.name === 'AbortError' ||
+    /failed to fetch|networkerror|load failed|timed out/i.test(error?.message || '')
   );
 }
 
