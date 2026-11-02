@@ -1,23 +1,37 @@
 # AI Financial Risk Intelligence Platform
-### Risk Scoring · Explainable AI · Regulatory RAG · Relationship Analysis
+
+<p align="center">
+  <strong>Risk Scoring · Explainable AI · Regulatory RAG · Relationship Analysis</strong>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white" alt="Python"/>
+  <img src="https://img.shields.io/badge/FastAPI-API-009688?logo=fastapi&logoColor=white" alt="FastAPI"/>
+  <img src="https://img.shields.io/badge/React-Frontend-61DAFB?logo=react&logoColor=black" alt="React"/>
+  <img src="https://img.shields.io/badge/Vite-Build-646CFF?logo=vite&logoColor=white" alt="Vite"/>
+  <img src="https://img.shields.io/badge/Machine%20Learning-scikit--learn%20%7C%20XGBoost-F7931E?logo=scikitlearn&logoColor=white" alt="Machine Learning"/>
+  <img src="https://img.shields.io/badge/RAG-Document%20Retrieval-7B2CBF" alt="RAG"/>
+  <img src="https://img.shields.io/badge/Docker-Containers-2496ED?logo=docker&logoColor=white" alt="Docker"/>
+  <img src="https://img.shields.io/badge/CI-GitHub%20Actions-2088FF?logo=githubactions&logoColor=white" alt="GitHub Actions"/>
+</p>
 
 A financial-risk **decision-support prototype** that brings credit-risk scoring, transaction-fraud analysis, retrieval-backed financial Q&A, and analyst-facing case workflows into one application.
 
-The platform combines a **React + Vite dashboard**, **FastAPI backend**, saved ML artifacts, document retrieval, PostgreSQL-backed operational data, and optional Neo4j relationship queries. It is designed to help analysts review model signals and supporting evidence—not to make autonomous lending, fraud, or regulatory decisions.
+The platform combines a **React + Vite dashboard**, **FastAPI backend**, saved ML artifacts, document retrieval, PostgreSQL-backed operational data, and optional Neo4j relationship queries. It is intended to help analysts review model signals and supporting evidence—not to make autonomous lending, fraud, or regulatory decisions.
 
 > **Implementation note:** This README describes the repository's verified application paths. Some modules are available as utilities but are not fully connected to the primary request flow. In particular, the main compliance RAG path is vector-based; Neo4j graph functionality is implemented but only partially integrated.
 
 ---
 
-## Table of contents
+## Contents
 
 - [Visual system workflow](#visual-system-workflow)
-- [What the platform does](#what-the-platform-does)
+- [Platform capabilities](#platform-capabilities)
 - [Architecture](#architecture)
-- [Technology stack](#technology-stack)
+- [Technology stack and logos](#technology-stack-and-logos)
 - [Core workflows](#core-workflows)
 - [Repository layout](#repository-layout)
-- [Getting started](#getting-started)
+- [Run the application](#run-the-application)
 - [Configuration and services](#configuration-and-services)
 - [API overview](#api-overview)
 - [Machine learning and explainability](#machine-learning-and-explainability)
@@ -30,13 +44,13 @@ The platform combines a **React + Vite dashboard**, **FastAPI backend**, saved M
 
 ## Visual system workflow
 
-The diagram below illustrates the principal user-facing paths. Credit scoring, direct fraud scoring, fraud investigation, and compliance Q&A are separate backend workflows; they do not all pass through one universal agent pipeline.
+The diagram illustrates the principal user-facing paths. Credit scoring, direct fraud scoring, fraud investigation, and compliance Q&A are separate backend workflows; they do not all pass through one universal agent pipeline.
 
 ```mermaid
 flowchart TB
     U[Analyst / User] --> UI[React + Vite Dashboard]
     UI --> API[FastAPI Application]
-    API --> AUTH[Bearer-token dependency<br/>or local AUTH_DISABLED mode]
+    API --> AUTH[Bearer-token dependency or local AUTH_DISABLED mode]
 
     AUTH --> CREDIT[Credit Risk Endpoint]
     AUTH --> FRAUD[Direct Fraud Scoring]
@@ -57,11 +71,11 @@ flowchart TB
     INVEST --> IF[PaySim investigation inference]
     IF --> ISHAP[SHAP feature contributions]
     IF --> Q[Build regulatory search query]
-    Q --> VDB[(Configured vector index<br/>FAISS or Pinecone)]
+    Q --> VDB[(Configured vector index: FAISS or Pinecone)]
     VDB --> E[Retrieved passages + source metadata]
     ISHAP --> REPORT[Local LLM report generation]
     E --> REPORT
-    REPORT --> FALLBACK[Structured Markdown fallback<br/>if generation is unavailable]
+    REPORT --> FALLBACK[Structured Markdown fallback if generation is unavailable]
     REPORT --> IOUT[Investigation response]
     FALLBACK --> IOUT
     INVEST -. optional account ID .-> NEO[(Neo4j relationship queries)]
@@ -87,27 +101,20 @@ flowchart TB
     IOUT --> UI
     RAGOUT --> UI
     PG --> UI
-
-    classDef user fill:#e8f4ff,stroke:#3b82f6,color:#172554;
-    classDef service fill:#e9fbf4,stroke:#10b981,color:#064e3b;
-    classDef store fill:#fff7e6,stroke:#f59e0b,color:#78350f;
-    class U,UI user;
-    class API,AUTH,CREDIT,FRAUD,INVEST,RAG,DOCS,OPS,REPORT,GEN service;
-    class VDB,NEO,PG store;
 ```
 
-### Workflow in brief
+### Workflow at a glance
 
 1. The user submits a credit, fraud, investigation, compliance, or document request through the dashboard.
 2. FastAPI validates the request and dispatches it to the corresponding route.
-3. The selected ML path prepares the required features and returns a model score or class.
+3. The selected ML path prepares its features and returns a model score or class.
 4. Where available, SHAP provides feature-contribution information for analyst review.
 5. Investigation and compliance paths retrieve financial/regulatory passages and return source-aware responses.
-6. Results are shown in the dashboard; operational case/customer data is handled through PostgreSQL-backed routes.
+6. Results appear in the dashboard; operational case/customer data is handled through PostgreSQL-backed routes.
 
 ---
 
-## What the platform does
+## Platform capabilities
 
 | Capability | Description |
 |---|---|
@@ -127,7 +134,7 @@ flowchart TB
 flowchart LR
     subgraph Frontend
       REACT[React Router]
-      CLIENT[riskApi.js<br/>Fetch client]
+      CLIENT[riskApi.js / Fetch client]
       REACT --> CLIENT
     end
 
@@ -144,7 +151,7 @@ flowchart LR
       SHAP[SHAP explainability]
       EMB[Embedding model]
       VECTOR[(FAISS / Chroma / Milvus / Pinecone adapters)]
-      LLM[Hugging Face / Ollama<br/>optional OpenAI provider]
+      LLM[Hugging Face / Ollama / optional OpenAI provider]
     end
 
     subgraph Persistence
@@ -164,30 +171,62 @@ flowchart LR
     FASTAPI -. helper module .-> REDIS
 ```
 
-**Important architecture distinctions**
+### Architecture distinctions
 
 - Direct fraud scoring is an inference path; it does not perform document retrieval or LLM report generation.
 - Fraud investigation is a separate path that adds retrieval and report creation.
-- The primary compliance/RAG service uses vector retrieval. Graph/vector hybrid utilities exist, but the graph evidence is not consistently fused into the primary RAG prompt.
+- The primary compliance/RAG service uses vector retrieval. Graph/vector hybrid utilities exist, but graph evidence is not consistently fused into the primary RAG prompt.
 - The multi-agent layer is deterministic Python dispatch and specialist functions. A LangGraph state-machine workflow is not implemented in the inspected source.
 - The API report output is Markdown; a PDF-rendering endpoint is not present in the active application path.
 
 ---
 
-## Technology stack
+## Technology stack and logos
+
+Logos are provided through [Skill Icons](https://skillicons.dev) and technology badges. Some technologies below are optional, adapter-based, or used in utility modules rather than every active request.
+
+### Stack overview
+
+<p align="center">
+  <img src="https://skillicons.dev/icons?i=python,fastapi,react,vite,js,html,css,postgres,docker,githubactions,git,github&perline=6" alt="Python, FastAPI, React, Vite, JavaScript, HTML, CSS, PostgreSQL, Docker, GitHub Actions, Git, GitHub"/>
+</p>
 
 | Layer | Technologies |
 |---|---|
-| Frontend | React, React Router, Vite, Recharts, Framer Motion, Lucide icons, CSS |
+| Frontend | React, React Router, Vite, Recharts, Framer Motion, Lucide icons, JavaScript, CSS |
 | API/backend | Python, FastAPI, Pydantic, SQLAlchemy |
-| Machine learning | scikit-learn, pandas, NumPy, joblib/pickle model artifacts |
+| Machine learning | scikit-learn, XGBoost, pandas, NumPy, joblib, pickle model artifacts |
 | Explainability | SHAP |
 | RAG / document processing | LangChain document abstractions/loaders, Hugging Face embeddings, retrieval and reranking utilities |
-| Vector stores | FAISS, Chroma, Milvus, Pinecone adapters; defaults depend on the code path |
+| Embedding / reranking models | `BAAI/bge-small-en-v1.5`; `cross-encoder/ms-marco-MiniLM-L-6-v2` |
+| Vector stores / adapters | FAISS, Chroma, Milvus, Pinecone; defaults vary by code path |
 | Graph | Neo4j driver and Cypher query utilities |
-| LLM options | Hugging Face generation, Ollama HTTP API, optional OpenAI provider |
+| LLM providers | Hugging Face generation, Ollama HTTP API, optional OpenAI provider |
 | Database / helpers | PostgreSQL, Redis utility module |
-| Development / CI | Docker, Docker Compose, GitHub Actions, pytest, Qlty coverage upload |
+| Development / CI | Git, GitHub, Docker, Docker Compose, GitHub Actions, pytest, Qlty coverage upload |
+
+### Individual technology badges
+
+<p>
+  <img src="https://img.shields.io/badge/React-UI-61DAFB?logo=react&logoColor=black" alt="React"/>
+  <img src="https://img.shields.io/badge/Vite-Frontend%20tooling-646CFF?logo=vite&logoColor=white" alt="Vite"/>
+  <img src="https://img.shields.io/badge/FastAPI-REST%20API-009688?logo=fastapi&logoColor=white" alt="FastAPI"/>
+  <img src="https://img.shields.io/badge/Pydantic-Validation-E92063?logo=pydantic&logoColor=white" alt="Pydantic"/>
+  <img src="https://img.shields.io/badge/scikit--learn-ML-F7931E?logo=scikitlearn&logoColor=white" alt="scikit-learn"/>
+  <img src="https://img.shields.io/badge/XGBoost-Boosting-EC6B23" alt="XGBoost"/>
+  <img src="https://img.shields.io/badge/SHAP-Explainability-6A5ACD" alt="SHAP"/>
+  <img src="https://img.shields.io/badge/LangChain-RAG-1C3C3C?logo=langchain&logoColor=white" alt="LangChain"/>
+  <img src="https://img.shields.io/badge/Hugging%20Face-Models-FFD21E?logo=huggingface&logoColor=black" alt="Hugging Face"/>
+  <img src="https://img.shields.io/badge/FAISS-Vector%20search-1877F2" alt="FAISS"/>
+  <img src="https://img.shields.io/badge/Pinecone-Vector%20database-000000" alt="Pinecone"/>
+  <img src="https://img.shields.io/badge/Neo4j-Graph%20database-4581C3?logo=neo4j&logoColor=white" alt="Neo4j"/>
+  <img src="https://img.shields.io/badge/PostgreSQL-Database-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL"/>
+  <img src="https://img.shields.io/badge/Redis-Optional%20helper-DC382D?logo=redis&logoColor=white" alt="Redis"/>
+  <img src="https://img.shields.io/badge/Ollama-Local%20LLM-000000" alt="Ollama"/>
+  <img src="https://img.shields.io/badge/Docker-Containerization-2496ED?logo=docker&logoColor=white" alt="Docker"/>
+  <img src="https://img.shields.io/badge/GitHub%20Actions-CI-2088FF?logo=githubactions&logoColor=white" alt="GitHub Actions"/>
+  <img src="https://img.shields.io/badge/pytest-Testing-0A9EDC?logo=pytest&logoColor=white" alt="pytest"/>
+</p>
 
 ---
 
@@ -225,7 +264,7 @@ This route is intentionally separate from the investigation/RAG flow.
 2. Attempt SHAP feature attribution.
 3. Form a regulatory search query using transaction and model information.
 4. Retrieve supporting passages from the configured FAISS or Pinecone index.
-5. Generate an analyst-facing Markdown report with the selected local generator.
+5. Generate an analyst-facing Markdown report with the selected generator.
 6. Use a structured report fallback if generation is unavailable or unusable.
 7. If an account ID is supplied, optionally attach Neo4j fan-in/fan-out evidence.
 
@@ -243,7 +282,7 @@ Graph evidence is attached as optional investigation evidence; it is not merged 
 6. Apply response checks and fallback behavior.
 7. Return an explicit insufficient-evidence response when relevant evidence is not found.
 
-The grounding checks are heuristic; they do not guarantee semantic entailment. Retrieved sources should be reviewed by a human.
+Grounding checks are heuristic; they do not guarantee semantic entailment. Retrieved sources should be reviewed by a human.
 
 ---
 
@@ -251,32 +290,34 @@ The grounding checks are heuristic; they do not guarantee semantic entailment. R
 
 ```text
 .
-├── frontend/                 # React + Vite dashboard
+├── frontend/                  # React + Vite dashboard
 │   └── src/
-│       ├── components/       # Reusable UI components
-│       ├── hooks/            # React hooks
+│       ├── components/        # Reusable UI components
+│       ├── hooks/             # React hooks
 │       ├── pages/             # Overview, cases, credit, fraud, compliance, etc.
-│       └── services/          # Frontend API client
+│       └── services/           # Frontend API client
 ├── src/
-│   ├── agents/                # Supervisor and specialist functions
-│   ├── api/                   # FastAPI app, routes, schemas, auth, middleware
-│   ├── database/              # SQLAlchemy models, PostgreSQL and Redis helpers
-│   ├── embeddings/            # Embedding model and chunk pipeline
-│   ├── evaluation/            # Evaluation utilities
-│   ├── graph_rag/              # Neo4j graph builder and query utilities
-│   ├── ingestion/             # File parsers and loaders
-│   ├── llm/                   # Provider factory, prompts, response helpers
-│   ├── ml_models/              # Credit, fraud, explainability, forecasting
-│   ├── preprocessing/          # Feature engineering and document chunking
-│   ├── retriever/              # Search, reranking, query rewrite utilities
-│   ├── services/               # Investigation, RAG, reports, document ingestion
-│   └── vectordb/               # Vector-store adapters and retrieval
-├── models/                    # Saved model and supporting artifacts
-├── data/                      # Dataset and document folders
-├── vector_store/               # Local vector index assets (where present)
-├── scripts/                   # Training, evaluation, ingestion, indexing, utilities
-├── notebooks/                 # Experiments and prototypes
-├── tests/                     # Python unit tests
+│   ├── agents/                 # Supervisor and specialist functions
+│   ├── api/                    # FastAPI app, routes, schemas, auth, middleware
+│   ├── database/               # SQLAlchemy models, PostgreSQL and Redis helpers
+│   ├── embeddings/              # Embedding model and chunk pipeline
+│   ├── evaluation/              # Evaluation utilities
+│   ├── graph_rag/               # Neo4j graph builder and query utilities
+│   ├── ingestion/               # File parsers and loaders
+│   ├── llm/                     # Provider factory, prompts, response helpers
+│   ├── ml_models/               # Credit, fraud, explainability, forecasting
+│   ├── preprocessing/           # Feature engineering and document chunking
+│   ├── retriever/               # Search, reranking, query rewrite utilities
+│   ├── services/                # Investigation, RAG, reports, document ingestion
+│   └── vectordb/                # Vector-store adapters and retrieval
+├── models/                     # Saved model and supporting artifacts
+├── data/                       # Dataset and document folders
+├── vector_store/                # Local vector index assets (where present)
+├── scripts/                    # Training, evaluation, ingestion, indexing, utilities
+├── notebooks/                  # Experiments and prototypes
+├── tests/                      # Python unit tests
+├── run_project.py              # One-command application launcher
+├── requirements.txt
 ├── Dockerfile
 ├── docker-compose.yml
 └── .github/workflows/ci.yml
@@ -284,92 +325,66 @@ The grounding checks are heuristic; they do not guarantee semantic entailment. R
 
 ---
 
-## Getting started
+## Run the application
 
-> The exact runtime depends on your environment, model artifacts, vector index, and configured providers. Check the repository's current dependency files and environment settings before running.
+### Start the entire project with one command
 
-### Prerequisites
+The project launcher is intended to start the backend and frontend from the repository root. Once the project dependencies, model artifacts, and required local configuration are available, run:
 
-- Python 3.11
-- Node.js and npm compatible with the frontend lockfile
-- Git and Git LFS if model artifacts are tracked through LFS
-- Docker and Docker Compose for container workflows
-- PostgreSQL for database-backed routes
-- Optional: Neo4j, Redis, Ollama, or a configured hosted provider, depending on the workflow you want to run
+```bash
+python run_project.py
+```
 
-### 1. Clone the repository
+**That is the application startup command.** You do not need to manually run Uvicorn and Vite in separate terminals.
+
+> Run this command from the project root—the directory containing `run_project.py`.
+
+### First-time setup
+
+A one-command launcher starts the application; it does not necessarily install every dependency or download every model/data artifact. Before the first run:
+
+1. Clone the repository and enter its root folder.
+2. Use the Python version supported by the project (Python 3.11 is the documented baseline).
+3. Install the dependencies listed in `requirements.txt` and the frontend package dependencies if the launcher does not perform setup automatically.
+4. Make sure required model files are present. If the repository uses Git LFS, install Git LFS and pull the tracked artifacts.
+5. Configure any required database, vector-store, or LLM settings for the features you plan to use.
+
+Example clone and dependency setup:
 
 ```bash
 git clone https://github.com/Abhishek4209/AI-Financial-Risk-Intelligence-Platform-using-Graph-RAG-Multi-Agent-LLM.git
 cd AI-Financial-Risk-Intelligence-Platform-using-Graph-RAG-Multi-Agent-LLM
-```
 
-If model files are stored with Git LFS, fetch them:
-
-```bash
 git lfs install
 git lfs pull
-```
 
-### 2. Set up the Python environment
-
-```bash
-python -m venv .venv
-```
-
-Activate it:
-
-**Windows PowerShell**
-```powershell
-.\.venv\Scripts\Activate.ps1
-```
-
-**macOS / Linux**
-```bash
-source .venv/bin/activate
-```
-
-Install the project dependencies:
-
-```bash
 python -m pip install --upgrade pip
 pip install -r requirements.txt
-```
 
-### 3. Set up the frontend
-
-```bash
 cd frontend
 npm ci
-npm run build
+cd ..
 ```
 
-For local development, start the Vite server using the frontend's configured development script, then return to the repository root to start the API.
-
-### 4. Start the API
-
-From the repository root:
+Then launch:
 
 ```bash
-python -m uvicorn src.main:app --reload --host 127.0.0.1 --port 8000
+python run_project.py
 ```
 
-API documentation is typically available at:
+### Local URLs
 
-- `http://127.0.0.1:8000/docs`
-- `http://127.0.0.1:8000/health`
+The exact ports are determined by the launcher configuration. When the application starts, use the URLs printed in the terminal. Common development endpoints are:
 
-The application has a bearer-token dependency for business routes. A local development launcher may set `AUTH_DISABLED=true`; do not use an authentication bypass in a public or production deployment.
+- Frontend: the Vite local URL printed by the launcher (often `http://localhost:5173`)
+- Backend API docs: `http://127.0.0.1:8000/docs`
+- Backend health: `http://127.0.0.1:8000/health`
 
-### 5. Docker Compose
+If your launcher uses different ports, its terminal output is the source of truth.
 
-The checked-in Compose setup includes PostgreSQL and the backend. It does not start the frontend, Redis, or Neo4j.
+### Stop the application
 
-```bash
-docker compose up --build
-```
-
-Provide the required environment configuration before starting. Note that the readiness endpoint checks PostgreSQL, Redis, and Neo4j; with only the Compose services running, readiness may report unavailable dependencies.
+Use **Ctrl + C** in the terminal running `run_project.py`. If the launcher opens separate child processes, follow any shutdown message printed by the script.
 
 ---
 
@@ -410,7 +425,7 @@ Runtime behavior is controlled primarily by environment variables and Python def
 | `/api/customers` | GET / POST | List or create customers |
 | `/api/customers/{customer_id}` | GET | Fetch a customer |
 
-See the interactive API docs at `/docs` while the backend is running for request and response schemas.
+See the interactive API documentation at `/docs` while the backend is running for request and response schemas.
 
 ---
 
@@ -438,6 +453,8 @@ The repository includes training and evaluation utilities, notebooks, and saved 
 
 The RAG path uses document chunks, embeddings, vector search, relevance filtering, reranking, and a generation step. Source metadata is returned to help reviewers trace the response to retrieved material.
 
+The active path uses rule-based query expansion, vector retrieval, duplicate removal, heuristic relevance filtering, and cross-encoder reranking when available. Some BM25, hybrid retrieval, rewrite, and parent-child utilities exist separately and are not all invoked by the primary compliance request path.
+
 ### Graph relationship analysis
 
 Neo4j graph utilities model:
@@ -449,13 +466,13 @@ Neo4j graph utilities model:
 
 Relationship types include ownership, sending/receiving, and document association. Cypher utilities support connected-customer, fan-in, fan-out, transaction-chain, and customer-document queries.
 
-**Graph integration status:** graph schema and query utilities are implemented, and optional graph evidence can be attached in the fraud investigation path. The document upload path does not currently populate the Neo4j document graph, and the main compliance RAG response pipeline does not consistently combine graph evidence with vector evidence.
+**Graph integration status:** Graph schema and query utilities are implemented, and optional graph evidence can be attached in the fraud investigation path. The document upload path does not currently populate the Neo4j document graph, and the main compliance RAG response pipeline does not consistently combine graph evidence with vector evidence.
 
 ---
 
 ## Testing and CI
 
-The repository includes Python unit tests and a GitHub Actions workflow. The configured CI checks include:
+The repository includes Python unit tests and a GitHub Actions workflow. Configured CI checks include:
 
 - Python compilation
 - YAML and Docker Compose validation
@@ -485,8 +502,8 @@ The current repository should be treated as a **prototype / decision-support app
 - Establish model calibration, fairness, temporal validation, governance, and monitoring.
 - Add database migrations, secrets management, observability, and deployment manifests.
 - Add a real PDF report renderer if downloadable PDF output is required.
-- Review the overview fallback behavior so server errors cannot be confused with sample dashboard data.
-- Validate all dataset licenses, artifact provenance, and feature preprocessing consistency.
+- Review overview fallback behavior so server errors cannot be confused with sample dashboard data.
+- Validate dataset licenses, artifact provenance, and feature preprocessing consistency.
 
 ---
 
@@ -495,7 +512,7 @@ The current repository should be treated as a **prototype / decision-support app
 This project is intended for educational, experimentation, and analyst decision-support purposes.
 
 - A model score is an estimate—not proof of fraud, default, or wrongdoing.
-- A threshold-based “HIGH” result is a review signal, not an automatic block, rejection, or filing.
+- A threshold-based **HIGH** result is a review signal, not an automatic block, rejection, or filing.
 - SHAP contributions are not causal explanations.
 - Generated answers and summaries can be wrong; verify claims against source documents.
 - Do not use the prototype as the sole basis for consequential financial decisions.
@@ -505,5 +522,4 @@ This project is intended for educational, experimentation, and analyst decision-
 
 ## Acknowledgements
 
-Built with open-source machine-learning, API, frontend, retrieval, and graph technologies. Dataset and model use should follow the respective licenses and terms.
-
+Built with open-source machine-learning, API, frontend, retrieval, and graph technologies. Dataset and model use should follow their respective licenses and terms.
