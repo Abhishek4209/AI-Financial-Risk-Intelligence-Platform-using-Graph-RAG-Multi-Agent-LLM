@@ -42,6 +42,10 @@ from src.ml_models.fraud_detection import (
 )
 from src.services.document_service import ingest_document
 from src.services.notification_service import notify_case_created
+from src.services.paysim_analytics import (
+    PaySimAnalyticsError,
+    get_paysim_analytics,
+)
 from src.utils.constants import FRAUD_MODEL_FILES, RAW_DATA_ROOT
 from src.utils.logger import get_logger
 
@@ -255,17 +259,7 @@ def overview_route(session: Session = Depends(get_db)):
         ).all()
     )
 
-    exposure = (
-        session.scalar(
-            select(func.coalesce(func.sum(Transaction.amount), 0.0))
-            .join(
-                InvestigationCase,
-                InvestigationCase.transaction_id == Transaction.id,
-            )
-            .where(InvestigationCase.status == "open")
-        )
-        or 0.0
-    )
+    exposure = _get_exposure_under_review(session)
 
     monthly_rows = session.execute(
         select(
@@ -289,15 +283,54 @@ def overview_route(session: Session = Depends(get_db)):
         .limit(5)
     ).all()
 
+    try:
+        transaction_analytics = get_paysim_analytics()
+    except PaySimAnalyticsError as exc:
+        logger.warning("PaySim analytics unavailable: %s", exc)
+        transaction_analytics = {
+            "source": "PaySim",
+            "is_synthetic": True,
+            "status": "unavailable",
+            "error": str(exc),
+        }
+
     return {
         "total_cases": total_cases,
         "open_cases": open_cases,
         "total_transactions": total_transactions,
+        "transaction_analytics": transaction_analytics,
         "case_breakdown": case_breakdown,
         "exposure_under_review": float(exposure),
         "monthly_case_trend": monthly_case_trend,
         "recent_cases": recent_cases,
     }
+
+
+def _get_exposure_under_review(session: Session) -> float:
+    open_case_transactions = (
+        select(
+            Transaction.id.label("transaction_id"),
+            func.max(Transaction.amount).label("amount"),
+        )
+        .join(
+            InvestigationCase,
+            InvestigationCase.transaction_id == Transaction.id,
+        )
+        .where(InvestigationCase.status == "open")
+        .group_by(Transaction.id)
+        .subquery()
+    )
+    return float(
+        session.scalar(
+            select(
+                func.coalesce(
+                    func.sum(open_case_transactions.c.amount),
+                    0.0,
+                )
+            )
+        )
+        or 0.0
+    )
 
 
 @router.get("/api/cases")

@@ -20,6 +20,12 @@ function formatCurrency(value) {
   return `$${value.toFixed(0)}`
 }
 
+function formatDatasetAmount(value) {
+  return Number(value).toLocaleString(undefined, {
+    maximumFractionDigits: 2,
+  })
+}
+
 function severityTone(severity) {
   if (severity === 'high') return 'high'
   if (severity === 'medium') return 'medium'
@@ -47,6 +53,9 @@ export default function Overview() {
   const { data, loading, error } = useRiskOverview()
   const [selectedCase, setSelectedCase] = useState(null)
   const navigate = useNavigate()
+  const transactionAnalytics = data?.transaction_analytics
+  const hasPaySimAnalytics =
+    transactionAnalytics?.status === 'available'
 
   if (loading) {
     return (
@@ -85,7 +94,10 @@ export default function Overview() {
   return (
     <section className="page-content">
       {data.isMock && (
-        <BackendOfflineNotice label="live portfolio data" />
+        <BackendOfflineNotice
+          title="Fallback demo data"
+          message={`Showing fallback values because the Overview API did not return data. PaySim analytics are not loaded in fallback mode. ${data.fallbackReason || ''}`}
+        />
       )}
 
       <section className="page-heading">
@@ -94,13 +106,13 @@ export default function Overview() {
             WORKSPACE / OVERVIEW
             <span className="live-pill">
               <i />
-              Live
+              {data.isMock ? 'Fallback' : 'Live'}
             </span>
           </p>
           <h1>Portfolio overview</h1>
           <p className="heading-copy">
-            Live aggregates from PostgreSQL. {data.open_cases} of{' '}
-            {data.total_cases} cases are open.
+            Investigation cases and linked operational transactions come from
+            PostgreSQL. {data.open_cases} of {data.total_cases} cases are open.
           </p>
         </div>
         <button
@@ -111,6 +123,76 @@ export default function Overview() {
           <Sparkles size={16} />
           Run new analysis
         </button>
+      </section>
+
+      <section className="panel paysim-panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Transaction analytics: PaySim (synthetic dataset)</h2>
+            <p>
+              Local CSV aggregates are calculated in chunks and cached for up
+              to five minutes. Amounts use PaySim dataset units, not
+              operational exposure.
+            </p>
+          </div>
+          {hasPaySimAnalytics && transactionAnalytics.refreshed_at && (
+            <span className="paysim-refresh">
+              Refreshed{' '}
+              {new Date(transactionAnalytics.refreshed_at).toLocaleString()}
+            </span>
+          )}
+        </div>
+        {hasPaySimAnalytics ? (
+          <>
+            <div className="paysim-metrics">
+              <div className="paysim-stat">
+                <span>Total transactions</span>
+                <strong>
+                  {transactionAnalytics.total_transactions.toLocaleString()}
+                </strong>
+              </div>
+              <div className="paysim-stat">
+                <span>Total transaction amount</span>
+                <strong>
+                  {formatDatasetAmount(transactionAnalytics.total_amount)}
+                </strong>
+              </div>
+              <div className="paysim-stat">
+                <span>Fraud transactions</span>
+                <strong>
+                  {transactionAnalytics.fraud_transaction_count.toLocaleString()}
+                </strong>
+                <small>
+                  {(transactionAnalytics.fraud_transaction_rate * 100).toFixed(2)}%
+                  {' '}of transactions
+                </small>
+              </div>
+              <div className="paysim-stat">
+                <span>Fraud transaction amount</span>
+                <strong>
+                  {formatDatasetAmount(
+                    transactionAnalytics.fraud_transaction_amount
+                  )}
+                </strong>
+              </div>
+            </div>
+            <h3 className="panel-subheading">Transactions by type</h3>
+            <div className="paysim-breakdown">
+              {Object.entries(
+                transactionAnalytics.transaction_type_breakdown
+              ).map(([type, count]) => (
+                <span key={type}>
+                  {type} <b>{count.toLocaleString()}</b>
+                </span>
+              ))}
+            </div>
+          </>
+        ) : (
+          <p className="empty-state">
+            {transactionAnalytics?.error ||
+              'PaySim analytics are unavailable in fallback demo data.'}
+          </p>
+        )}
       </section>
 
       <section className="metric-grid" aria-label="Portfolio metrics">
@@ -147,13 +229,13 @@ export default function Overview() {
             {formatCurrency(data.exposure_under_review)}
           </strong>
           <p className="metric-change">
-            Sum of transaction amounts tied to open cases
+            Sum of unique linked transaction amounts for open cases
           </p>
         </article>
 
         <article className="metric-card">
           <div className="metric-card__top">
-            <span className="metric-label">Total transactions</span>
+            <span className="metric-label">PostgreSQL transactions</span>
             <span className="metric-icon metric-icon--red">
               <ShieldAlert size={17} />
             </span>
@@ -162,7 +244,9 @@ export default function Overview() {
             {data.total_transactions.toLocaleString()}
           </strong>
           <p className="metric-change">
-            Recorded in the platform database
+            {data.isMock
+              ? 'Fallback demo value; not read from PostgreSQL'
+              : 'Operational transaction records in PostgreSQL'}
           </p>
         </article>
       </section>
@@ -212,7 +296,7 @@ export default function Overview() {
         {data.recent_cases.length ? (
           <PriorityCasesTable
             cases={data.recent_cases.map(toCaseRow)}
-            onOpenCase={setSelectedCaseId}
+            onOpenCase={setSelectedCase}
           />
         ) : (
           <p className="empty-state">No cases recorded yet.</p>
