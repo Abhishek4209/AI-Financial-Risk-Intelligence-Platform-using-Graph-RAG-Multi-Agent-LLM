@@ -8,10 +8,12 @@ models/*.joblib
 # Local secrets
 .env
 .env.*
-!.env.example
+# Local-only example environment file
+.env.example
 # Frontend dependencies and generated build files
 frontend/node_modules/
 frontend/dist/
 .env
 .coverage
 PROJECT_INTERVIEW_KNOWLEDGE_BASE.ipynb
+project_working.ipynb
