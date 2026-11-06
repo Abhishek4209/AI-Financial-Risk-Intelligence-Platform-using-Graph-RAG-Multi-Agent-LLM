@@ -14,7 +14,7 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /health
-    autoDeploy: true
+    autoDeployTrigger: off
     envVars:
       - key: APP_ENV
         value: production
