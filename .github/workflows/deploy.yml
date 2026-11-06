@@ -18,20 +18,25 @@ concurrency:
 jobs:
   deploy-frontend:
     name: Deploy React frontend to Vercel
-    if: >-
-      ${{ (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success') &&
-          secrets.VERCEL_TOKEN != '' &&
-          secrets.VERCEL_ORG_ID != '' &&
-          secrets.VERCEL_PROJECT_ID != '' &&
-          secrets.VITE_API_URL != '' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-24.04
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VITE_API_URL: ${{ secrets.VITE_API_URL }}
     steps:
+      - name: Skip when Vercel is not configured
+        if: ${{ env.VERCEL_TOKEN == '' || env.VERCEL_ORG_ID == '' || env.VERCEL_PROJECT_ID == '' || env.VITE_API_URL == '' }}
+        run: echo "::notice::Vercel deployment skipped because one or more Vercel secrets are missing."
       - name: Check out tested main commit
+        if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != '' && env.VITE_API_URL != '' }}
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       - name: Set up Node.js
+        if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != '' && env.VITE_API_URL != '' }}
         uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -39,16 +44,13 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
+        if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != '' && env.VITE_API_URL != '' }}
         working-directory: frontend
         run: npm ci --legacy-peer-deps --no-audit --no-fund
 
       - name: Build and deploy to Vercel
+        if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != '' && env.VITE_API_URL != '' }}
         working-directory: frontend
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
         run: |
           npm install --global vercel
           vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
@@ -57,14 +59,16 @@ jobs:
 
   deploy-backend:
     name: Trigger Render backend deployment
-    if: >-
-      ${{ (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success') &&
-          secrets.RENDER_DEPLOY_HOOK != '' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-24.04
+    env:
+      RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
     steps:
+      - name: Skip when Render is not configured
+        if: ${{ env.RENDER_DEPLOY_HOOK == '' }}
+        run: echo "::notice::Render deployment skipped because RENDER_DEPLOY_HOOK is missing."
       - name: Trigger Render deploy hook
-        env:
-          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        if: ${{ env.RENDER_DEPLOY_HOOK != '' }}
         run: |
           curl --fail --silent --show-error --request POST "$RENDER_DEPLOY_HOOK"
 
