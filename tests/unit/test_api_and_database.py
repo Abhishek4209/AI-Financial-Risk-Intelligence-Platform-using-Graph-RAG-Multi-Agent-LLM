@@ -582,6 +582,7 @@ def test_api_health_readiness_and_dependency_checks(monkeypatch):
         lambda: (_ for _ in ()).throw(RuntimeError("offline")),
     )
     assert api_main._check_postgres() == "unavailable"
+    monkeypatch.setenv("REDIS_URL", "redis://test.local:6379/0")
     redis_module.get_redis_client.cache_clear()
     monkeypatch.setattr(
         redis_module,
@@ -589,6 +590,8 @@ def test_api_health_readiness_and_dependency_checks(monkeypatch):
         lambda: (_ for _ in ()).throw(RuntimeError("offline")),
     )
     assert api_main._check_redis() == "unavailable"
+    monkeypatch.setenv("NEO4J_URI", "neo4j://test.local:7687")
+    monkeypatch.setenv("NEO4J_PASSWORD", "test-password")
     graph_loader = importlib.import_module("src.graph_rag.neo4j_loader")
     monkeypatch.setattr(graph_loader, "verify_connectivity", lambda: False)
     assert api_main._check_neo4j() == "unavailable"
