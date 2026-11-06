@@ -2,7 +2,7 @@ databases:
   - name: financial-risk-postgres
     databaseName: financial_risk_db
     user: financial_risk_user
-    plan: basic-256mb
+    plan: basic_256mb
     region: singapore
 
 services:
