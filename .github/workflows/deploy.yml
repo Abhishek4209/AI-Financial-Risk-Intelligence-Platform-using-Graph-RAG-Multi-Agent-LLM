@@ -23,13 +23,13 @@ jobs:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      VITE_API_URL: ${{ secrets.VITE_API_URL }}
+      VITE_API_URL: https://ai-financial-risk-intelligence-platform.onrender.com
     steps:
       - name: Skip when Vercel is not configured
-        if: ${{ env.VERCEL_TOKEN == '' || env.VERCEL_ORG_ID == '' || env.VERCEL_PROJECT_ID == '' || env.VITE_API_URL == '' }}
+        if: ${{ env.VERCEL_TOKEN == '' || env.VERCEL_ORG_ID == '' || env.VERCEL_PROJECT_ID == '' }}
         run: echo "::notice::Vercel deployment skipped because one or more Vercel secrets are missing."
       - name: Check out tested main commit
-        if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != '' && env.VITE_API_URL != '' }}
+        if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_ORG_ID != '' && env.VERCEL_PROJECT_ID != '' }}
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
@@ -52,10 +52,10 @@ jobs:
         working-directory: frontend
         run: |
           npm install --global vercel
-          vercel link --yes --project "$VERCEL_PROJECT_ID" --token="$VERCEL_TOKEN"
-          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          vercel link --yes --scope "$VERCEL_ORG_ID" --project "$VERCEL_PROJECT_ID" --token="$VERCEL_TOKEN"
+          vercel pull --yes --environment=production --scope "$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
           vercel build --prod --token="$VERCEL_TOKEN"
-          vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+          vercel deploy --prebuilt --prod --scope "$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
 
   deploy-backend:
     name: Trigger Render backend deployment
@@ -83,11 +83,10 @@ jobs:
           HAS_VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN != '' }}
           HAS_VERCEL_ORG: ${{ secrets.VERCEL_ORG_ID != '' }}
           HAS_VERCEL_PROJECT: ${{ secrets.VERCEL_PROJECT_ID != '' }}
-          HAS_FRONTEND_API: ${{ secrets.VITE_API_URL != '' }}
           HAS_RENDER_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK != '' }}
         run: |
           echo "## Production deployment configuration" >> "$GITHUB_STEP_SUMMARY"
-          for item in HAS_VERCEL_TOKEN HAS_VERCEL_ORG HAS_VERCEL_PROJECT HAS_FRONTEND_API HAS_RENDER_HOOK; do
+          for item in HAS_VERCEL_TOKEN HAS_VERCEL_ORG HAS_VERCEL_PROJECT HAS_RENDER_HOOK; do
             if [ "${!item}" = "true" ]; then
               echo "- `$item`: configured" >> "$GITHUB_STEP_SUMMARY"
             else
