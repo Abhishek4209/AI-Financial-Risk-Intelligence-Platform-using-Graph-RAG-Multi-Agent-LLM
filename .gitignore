@@ -17,3 +17,5 @@ frontend/dist/
 .coverage
 PROJECT_INTERVIEW_KNOWLEDGE_BASE.ipynb
 project_working.ipynb
+.vercel
+.env*

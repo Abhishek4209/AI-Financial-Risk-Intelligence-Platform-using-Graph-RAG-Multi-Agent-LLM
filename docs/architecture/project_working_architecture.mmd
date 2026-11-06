@@ -1,0 +1,94 @@
+%% AI Financial Risk Intelligence Platform - source-verified working architecture
+%% Verification: source files were inspected; the application was not launched, so end-to-end runtime behavior was not verified.
+%% Status key: solid edges = implemented workflow in source; dashed edges/nodes = optional or configuration-dependent; gray status node = not active/verified as an active workflow.
+flowchart LR
+    analyst["Analyst / User"]
+    ui["React + Vite - Ledgerline Dashboard<br/>Overview, cases, credit, fraud,<br/>compliance, customers, documents"]
+    client["riskApi.js<br/>HTTP JSON / multipart requests"]
+    api["FastAPI + Pydantic<br/>Shared auth dependency on business routes"]
+    analyst --> ui --> client --> api
+
+    subgraph scoring["Independent scoring and investigation routes"]
+        direction TB
+        credit["POST /predict/credit-risk"]
+        credit_features["Dataset-specific feature preparation<br/>Taiwan OR Lending Club"]
+        credit_models["Saved credit artifacts<br/>taiwan_credit_default_model.pkl<br/>lending_club_default_model.pkl"]
+        credit_result["Default probability + HIGH / MEDIUM / LOW band<br/>Optional SHAP drivers"]
+        credit --> credit_features --> credit_models --> credit_result
+
+        direct_fraud["POST /predict/fraud-models"]
+        fraud_inputs["Separate PaySim transaction and<br/>IEEE-CIS feature inputs"]
+        fraud_models["Saved PaySim and IEEE-CIS artifacts<br/>IEEE categorical encoders"]
+        fraud_result["Per-model probability + threshold result<br/>Optional SHAP; incompatible status is explicit"]
+        direct_fraud --> fraud_inputs --> fraud_models --> fraud_result
+
+        investigation["POST /predict/fraud<br/>POST /investigation"]
+        paysim_features["PaySim feature engineering<br/>Saved PaySim model inference"]
+        drivers["SHAP drivers<br/>Build regulatory search query"]
+        evidence["Configured regulatory vector search<br/>FAISS or Pinecone for this path"]
+        report["Hugging Face report by default<br/>Ollama optional; structured Markdown fallback"]
+        investigation_result["Investigation response<br/>Risk + SHAP + cited evidence + report"]
+        investigation --> paysim_features --> drivers --> evidence --> report --> investigation_result
+        neo4j["Optional Neo4j fan-in / fan-out<br/>Only when account_id is provided"]
+        report -. "if account_id is provided" .-> neo4j
+        neo4j -. separate graph_evidence field .-> investigation_result
+    end
+
+    subgraph retrieval["Compliance and document RAG"]
+        direction TB
+        qna["POST /compliance/query<br/>POST /rag/query"]
+        rewrite["Rule-based query expansion<br/>Up to four searches"]
+        vector["Vector retrieval<br/>FAISS default; provider adapters configurable"]
+        rank["Deduplicate + heuristic evidence filter<br/>Cross-encoder rerank or keyword fallback"]
+        answer["LLM answer + lexical support checks<br/>Evidence extraction / insufficient-evidence fallback"]
+        qna --> rewrite --> vector --> rank --> answer
+
+        upload["POST /api/documents"]
+        save_file["Save upload under data/raw/uploads"]
+        parse["Parse supported formats + chunk<br/>PDF, XLSX/XLS, email, TXT/MD, HTML"]
+        embed["Embed chunks<br/>Hugging Face default; OpenAI optional"]
+        index["Index chunks in configured vector backend"]
+        upload --> save_file --> parse --> embed --> index
+        index -. provider and index settings must match .-> vector
+    end
+
+    ops["GET/POST /api/cases<br/>GET/POST /api/customers<br/>GET /api/overview"]
+    postgres[("PostgreSQL<br/>SQLAlchemy operational records")]
+    paysim_csv["Local PaySim CSV<br/>Chunked analytics; 5-minute cache"]
+    api --> credit
+    api --> direct_fraud
+    api --> investigation
+    api --> qna
+    api --> upload
+    api --> ops
+    ops --> postgres
+    paysim_csv -->|overview analytics| ops
+
+    credit_result -->|JSON response| ui
+    fraud_result -->|JSON response| ui
+    investigation_result -->|JSON response| ui
+    answer -->|answer + sources + grounding status| ui
+    index -->|upload status| ui
+    postgres --> ops
+    ops -->|overview / cases / customers response| ui
+
+    status["NOT ACTIVE / UNVERIFIED AS ACTIVE WORKFLOWS<br/>LangGraph orchestration; full Graph RAG fusion;<br/>AML prediction; customer-analytics prediction;<br/>Redis caching"]
+
+    classDef frontend fill:#102A43,stroke:#39C6D9,color:#EAF8FF,stroke-width:2px;
+    classDef apiLayer fill:#172554,stroke:#6EA8FE,color:#EFF6FF,stroke-width:2px;
+    classDef ml fill:#38250F,stroke:#F5A742,color:#FFF4E4,stroke-width:2px;
+    classDef rag fill:#281A46,stroke:#B79BFF,color:#F5F0FF,stroke-width:2px;
+    classDef db fill:#0D332F,stroke:#45D3B0,color:#E8FFF8,stroke-width:2px;
+    classDef optional fill:#18212E,stroke:#8293A8,color:#D7E1EC,stroke-dasharray:5 4;
+    classDef unverified fill:#18212E,stroke:#8293A8,color:#D7E1EC,stroke-dasharray:5 4;
+
+    class analyst,ui,client frontend;
+    class api,ops apiLayer;
+    class credit,credit_features,credit_models,credit_result,direct_fraud,fraud_inputs,fraud_models,fraud_result,investigation,paysim_features,drivers,report,investigation_result ml;
+    class qna,rewrite,vector,rank,answer,upload,save_file,parse,embed,index rag;
+    class postgres db;
+    class evidence,neo4j optional;
+    class status unverified;
+
+    style scoring fill:#101B2A,stroke:#31455F,stroke-width:1px
+    style retrieval fill:#101B2A,stroke:#49376E,stroke-width:1px

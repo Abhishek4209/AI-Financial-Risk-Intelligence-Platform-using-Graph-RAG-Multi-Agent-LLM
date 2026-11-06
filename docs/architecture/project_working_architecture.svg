@@ -1,0 +1,359 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="2160" viewBox="0 0 1920 1080" role="img" aria-labelledby="title description">
+  <title id="title">AI Financial Risk Intelligence Platform - Verified Working Architecture</title>
+  <desc id="description">Landscape architecture diagram showing the actual dashboard, FastAPI routes, separate ML scoring and investigation workflows, vector RAG, optional Neo4j relationship evidence, document ingestion, and PostgreSQL operational data.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#081421"/>
+      <stop offset="0.55" stop-color="#0b1726"/>
+      <stop offset="1" stop-color="#101a30"/>
+    </linearGradient>
+    <linearGradient id="headerGlow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#36c8d8" stop-opacity=".85"/>
+      <stop offset=".52" stop-color="#7987ff" stop-opacity=".8"/>
+      <stop offset="1" stop-color="#a87aff" stop-opacity=".6"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#020810" flood-opacity=".5"/>
+    </filter>
+    <marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L9,4.5 L0,9 Z" fill="#8ca7c5"/>
+    </marker>
+    <marker id="arrowCyan" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L9,4.5 L0,9 Z" fill="#42c9d8"/>
+    </marker>
+    <marker id="arrowPurple" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L9,4.5 L0,9 Z" fill="#b39aff"/>
+    </marker>
+    <marker id="arrowTeal" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L9,4.5 L0,9 Z" fill="#4dd8b2"/>
+    </marker>
+    <style>
+      text { font-family: Inter, "Segoe UI", Arial, sans-serif; fill: #edf4fb; }
+      .eyebrow { font-size: 13px; font-weight: 700; letter-spacing: 2px; fill: #9fb3ca; }
+      .title { font-size: 34px; font-weight: 750; letter-spacing: .2px; }
+      .subtitle { font-size: 16px; fill: #a9bbcf; }
+      .section { font-size: 14px; font-weight: 750; letter-spacing: 1.35px; }
+      .card-title { font-size: 15px; font-weight: 700; }
+      .body { font-size: 12.5px; fill: #c4d2e0; }
+      .small { font-size: 11px; fill: #afc0d2; }
+      .tiny { font-size: 10px; fill: #9aadc2; }
+      .node { filter: url(#shadow); }
+      .edge { fill: none; stroke: #8ca7c5; stroke-width: 2.1; marker-end: url(#arrow); }
+      .edge-cyan { fill: none; stroke: #42c9d8; stroke-width: 2.1; marker-end: url(#arrowCyan); }
+      .edge-purple { fill: none; stroke: #b39aff; stroke-width: 2.1; marker-end: url(#arrowPurple); }
+      .edge-teal { fill: none; stroke: #4dd8b2; stroke-width: 2.1; marker-end: url(#arrowTeal); }
+      .edge-dashed { fill: none; stroke: #a7b3c2; stroke-width: 1.8; stroke-dasharray: 6 5; marker-end: url(#arrow); }
+      .pill { font-size: 10px; font-weight: 700; letter-spacing: .8px; }
+    </style>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#background)"/>
+  <circle cx="1700" cy="85" r="220" fill="#4f46e5" opacity=".055"/>
+  <circle cx="180" cy="880" r="280" fill="#13b8a6" opacity=".035"/>
+  <path d="M0 126 H1920" stroke="url(#headerGlow)" stroke-width="2"/>
+
+  <text x="60" y="34" class="eyebrow">SOURCE-VERIFIED SYSTEM MAP</text>
+  <text x="60" y="76" class="title">AI Financial Risk Intelligence Platform</text>
+  <text x="60" y="105" class="subtitle">Graph RAG + Multi-Agent LLM | source-verified; not launched for end-to-end runtime verification</text>
+  <g transform="translate(1450 42)">
+    <circle cx="0" cy="0" r="5" fill="#53d3df"/>
+    <text x="13" y="4" class="small">Active path</text>
+    <line x1="112" y1="0" x2="150" y2="0" stroke="#a7b3c2" stroke-width="2" stroke-dasharray="6 5"/>
+    <text x="159" y="4" class="small">Optional / conditional</text>
+    <rect x="0" y="20" width="12" height="9" rx="2" fill="#18212e" stroke="#8293a8" stroke-dasharray="3 2"/>
+    <text x="19" y="29" class="small">Not active / unverified as an active workflow</text>
+  </g>
+  <text x="1860" y="105" text-anchor="end" class="tiny">16:9  |  3840 x 2160 SVG canvas</text>
+
+  <!-- Entry and operational data -->
+  <g class="node">
+    <rect x="60" y="150" width="185" height="125" rx="17" fill="#10253a" stroke="#40c6d6" stroke-width="1.7"/>
+    <rect x="60" y="150" width="6" height="125" rx="3" fill="#40c6d6"/>
+    <text x="82" y="180" class="pill" fill="#69dbe3">01 / INPUT</text>
+    <text x="82" y="210" class="card-title">Analyst / User</text>
+    <text x="82" y="234" class="body">Forms, questions,</text>
+    <text x="82" y="252" class="body">transactions, documents</text>
+  </g>
+  <g class="node">
+    <rect x="260" y="150" width="260" height="125" rx="17" fill="#10253a" stroke="#40c6d6" stroke-width="1.7"/>
+    <rect x="260" y="150" width="6" height="125" rx="3" fill="#40c6d6"/>
+    <text x="282" y="180" class="pill" fill="#69dbe3">02 / FRONTEND</text>
+    <text x="282" y="207" class="card-title">React + Vite | Ledgerline</text>
+    <text x="282" y="230" class="body">Overview, cases, credit, fraud,</text>
+    <text x="282" y="249" class="body">compliance, customers, documents</text>
+    <text x="282" y="266" class="small">riskApi.js: JSON + multipart fetch</text>
+  </g>
+  <g class="node">
+    <rect x="550" y="150" width="260" height="125" rx="17" fill="#152744" stroke="#78a8ff" stroke-width="1.7"/>
+    <rect x="550" y="150" width="6" height="125" rx="3" fill="#78a8ff"/>
+    <text x="572" y="180" class="pill" fill="#9fc1ff">03 / API</text>
+    <text x="572" y="207" class="card-title">FastAPI + Pydantic</text>
+    <text x="572" y="230" class="body">Validated endpoints / requests</text>
+    <text x="572" y="250" class="body">Shared auth; local bypass option</text>
+    <text x="572" y="267" class="small">/health | /ready | business routes</text>
+  </g>
+  <g class="node">
+    <rect x="840" y="150" width="300" height="125" rx="17" fill="#152744" stroke="#78a8ff" stroke-width="1.7"/>
+    <rect x="840" y="150" width="6" height="125" rx="3" fill="#78a8ff"/>
+    <text x="862" y="180" class="pill" fill="#9fc1ff">04 / ROUTE DISPATCH</text>
+    <text x="862" y="207" class="card-title">Independent workflows</text>
+    <text x="862" y="230" class="body">Credit | fraud | investigation</text>
+    <text x="862" y="250" class="body">Compliance/RAG | document upload</text>
+    <text x="862" y="267" class="small">No universal agent fan-out</text>
+  </g>
+  <g class="node">
+    <rect x="1170" y="150" width="250" height="125" rx="17" fill="#152744" stroke="#78a8ff" stroke-width="1.7"/>
+    <rect x="1170" y="150" width="6" height="125" rx="3" fill="#78a8ff"/>
+    <text x="1192" y="180" class="pill" fill="#9fc1ff">OPERATIONAL APIs</text>
+    <text x="1192" y="207" class="card-title">Cases / customers /</text>
+    <text x="1192" y="230" class="card-title">overview routes</text>
+    <text x="1192" y="252" class="body">Operational records / aggregates</text>
+    <text x="1192" y="269" class="small">Overview also reads PaySim CSV</text>
+  </g>
+  <g class="node">
+    <rect x="1450" y="150" width="410" height="125" rx="17" fill="#0f302e" stroke="#4dd8b2" stroke-width="1.7"/>
+    <rect x="1450" y="150" width="6" height="125" rx="3" fill="#4dd8b2"/>
+    <text x="1472" y="180" class="pill" fill="#7ae7c8">OPERATIONAL PERSISTENCE</text>
+    <text x="1472" y="207" class="card-title">PostgreSQL | SQLAlchemy</text>
+    <text x="1472" y="230" class="body">Cases, customers, overview queries only</text>
+    <text x="1472" y="250" class="body">Prediction/report results are not stored</text>
+    <text x="1472" y="267" class="small">Case webhook optional; Redis cache not wired</text>
+  </g>
+  <path d="M230 212 H260" class="edge-cyan"/>
+  <path d="M520 212 H550" class="edge-cyan"/>
+  <path d="M810 212 H840" class="edge"/>
+  <path d="M680 275 V286 H1295 V275" class="edge"/>
+  <path d="M1420 212 H1450" class="edge-teal"/>
+
+  <!-- Credit workflow -->
+  <rect x="48" y="300" width="1824" height="112" rx="17" fill="#151c27" stroke="#493a29" stroke-width="1"/>
+  <rect x="48" y="300" width="5" height="112" rx="2" fill="#f3a342"/>
+  <text x="65" y="321" class="section" fill="#f5b75e">A  /  CREDIT RISK</text>
+  <g class="node">
+    <rect x="65" y="330" width="230" height="68" rx="12" fill="#2b2117" stroke="#d88f38"/>
+    <text x="82" y="354" class="card-title">POST /predict/credit-risk</text>
+    <text x="82" y="377" class="small">Applicant + dataset key</text>
+  </g>
+  <g class="node">
+    <rect x="325" y="330" width="250" height="68" rx="12" fill="#2b2117" stroke="#d88f38"/>
+    <text x="342" y="354" class="card-title">Feature preparation</text>
+    <text x="342" y="376" class="small">Taiwan OR Lending Club schema</text>
+  </g>
+  <g class="node">
+    <rect x="605" y="330" width="250" height="68" rx="12" fill="#2b2117" stroke="#d88f38"/>
+    <text x="622" y="354" class="card-title">Saved credit artifacts</text>
+    <text x="622" y="375" class="small">Taiwan .pkl | Lending Club .pkl</text>
+    <text x="622" y="390" class="tiny">Separate dataset-specific models</text>
+  </g>
+  <g class="node">
+    <rect x="885" y="330" width="250" height="68" rx="12" fill="#2b2117" stroke="#d88f38"/>
+    <text x="902" y="354" class="card-title">Probability + risk band</text>
+    <text x="902" y="375" class="small">HIGH >= .50 | MEDIUM >= .25</text>
+    <text x="902" y="390" class="tiny">SHAP drivers attempted</text>
+  </g>
+  <g class="node">
+    <rect x="1165" y="330" width="250" height="68" rx="12" fill="#2b2117" stroke="#d88f38"/>
+    <text x="1182" y="354" class="card-title">Decision support output</text>
+    <text x="1182" y="376" class="small">Review recommendation + JSON</text>
+  </g>
+  <g class="node">
+    <rect x="1445" y="330" width="380" height="68" rx="12" fill="#10253a" stroke="#40c6d6"/>
+    <text x="1463" y="354" class="card-title">Dashboard result</text>
+    <text x="1463" y="376" class="small">Probability, band, interpretation, SHAP factors</text>
+  </g>
+  <path d="M295 364 H325" class="edge"/>
+  <path d="M575 364 H605" class="edge"/>
+  <path d="M855 364 H885" class="edge"/>
+  <path d="M1135 364 H1165" class="edge"/>
+  <path d="M1415 364 H1445" class="edge-cyan"/>
+
+  <!-- Direct fraud scoring -->
+  <rect x="48" y="420" width="1824" height="112" rx="17" fill="#151c27" stroke="#493a29" stroke-width="1"/>
+  <rect x="48" y="420" width="5" height="112" rx="2" fill="#f3a342"/>
+  <text x="65" y="441" class="section" fill="#f5b75e">B  /  DIRECT FRAUD SCORING</text>
+  <g class="node">
+    <rect x="65" y="450" width="230" height="68" rx="12" fill="#2b2117" stroke="#d88f38"/>
+    <text x="82" y="474" class="card-title">POST /predict/fraud-models</text>
+    <text x="82" y="496" class="small">Model-comparison request</text>
+  </g>
+  <g class="node">
+    <rect x="325" y="450" width="250" height="68" rx="12" fill="#2b2117" stroke="#d88f38"/>
+    <text x="342" y="474" class="card-title">Separate input schemas</text>
+    <text x="342" y="496" class="small">PaySim transaction / IEEE features</text>
+  </g>
+  <g class="node">
+    <rect x="605" y="450" width="250" height="68" rx="12" fill="#2b2117" stroke="#d88f38"/>
+    <text x="622" y="474" class="card-title">Saved fraud artifacts</text>
+    <text x="622" y="495" class="small">PaySim + IEEE-CIS + encoders</text>
+  </g>
+  <g class="node">
+    <rect x="885" y="450" width="250" height="68" rx="12" fill="#2b2117" stroke="#d88f38"/>
+    <text x="902" y="474" class="card-title">Probability + threshold</text>
+    <text x="902" y="495" class="small">SHAP when available; status per model</text>
+  </g>
+  <g class="node">
+    <rect x="1165" y="450" width="250" height="68" rx="12" fill="#2b2117" stroke="#d88f38"/>
+    <text x="1182" y="474" class="card-title">No RAG / no LLM</text>
+    <text x="1182" y="496" class="small">Incompatible inputs are explicit</text>
+  </g>
+  <g class="node">
+    <rect x="1445" y="450" width="380" height="68" rx="12" fill="#10253a" stroke="#40c6d6"/>
+    <text x="1463" y="474" class="card-title">Dashboard model results</text>
+    <text x="1463" y="496" class="small">Independent per-model scores and status</text>
+  </g>
+  <path d="M295 484 H325" class="edge"/>
+  <path d="M575 484 H605" class="edge"/>
+  <path d="M855 484 H885" class="edge"/>
+  <path d="M1135 484 H1165" class="edge"/>
+  <path d="M1415 484 H1445" class="edge-cyan"/>
+
+  <!-- Investigation workflow -->
+  <rect x="48" y="540" width="1824" height="180" rx="17" fill="#151c27" stroke="#493a29" stroke-width="1"/>
+  <rect x="48" y="540" width="5" height="180" rx="2" fill="#f3a342"/>
+  <text x="65" y="561" class="section" fill="#f5b75e">C  /  PAYSim FRAUD INVESTIGATION</text>
+  <g class="node">
+    <rect x="65" y="570" width="230" height="78" rx="12" fill="#2b2117" stroke="#d88f38"/>
+    <text x="82" y="594" class="card-title">/predict/fraud</text>
+    <text x="82" y="614" class="card-title">/investigation</text>
+    <text x="82" y="635" class="small">PaySim transaction (+ account_id)</text>
+  </g>
+  <g class="node">
+    <rect x="325" y="570" width="250" height="78" rx="12" fill="#2b2117" stroke="#d88f38"/>
+    <text x="342" y="594" class="card-title">Feature engineering + model</text>
+    <text x="342" y="617" class="small">PaySim score / threshold result</text>
+    <text x="342" y="635" class="tiny">No mixed fraud datasets</text>
+  </g>
+  <g class="node">
+    <rect x="605" y="570" width="250" height="78" rx="12" fill="#2b2117" stroke="#d88f38"/>
+    <text x="622" y="594" class="card-title">SHAP + search query</text>
+    <text x="622" y="617" class="small">Risk factors guide the lookup</text>
+    <text x="622" y="635" class="tiny">SHAP is an attribution signal</text>
+  </g>
+  <g class="node">
+    <rect x="885" y="570" width="250" height="78" rx="12" fill="#281d3e" stroke="#a987ed"/>
+    <text x="902" y="594" class="card-title">Regulatory evidence</text>
+    <text x="902" y="617" class="small">FAISS default / Pinecone optional</text>
+    <text x="902" y="635" class="tiny">RAG_VECTOR_BACKEND selector</text>
+  </g>
+  <g class="node">
+    <rect x="1165" y="570" width="250" height="78" rx="12" fill="#281d3e" stroke="#a987ed"/>
+    <text x="1182" y="594" class="card-title">Report generation</text>
+    <text x="1182" y="617" class="small">Hugging Face default / Ollama option</text>
+    <text x="1182" y="635" class="tiny">Structured Markdown fallback</text>
+  </g>
+  <g class="node">
+    <rect x="1445" y="570" width="380" height="78" rx="12" fill="#10253a" stroke="#40c6d6"/>
+    <text x="1463" y="594" class="card-title">Investigation response to dashboard</text>
+    <text x="1463" y="617" class="small">Model + SHAP + cited passages + Markdown</text>
+    <text x="1463" y="635" class="tiny">Graph evidence is a separate response field</text>
+  </g>
+  <path d="M295 609 H325" class="edge"/>
+  <path d="M575 609 H605" class="edge"/>
+  <path d="M855 609 H885" class="edge"/>
+  <path d="M1135 609 H1165" class="edge-purple"/>
+  <path d="M1415 609 H1445" class="edge-cyan"/>
+  <g class="node">
+    <rect x="1165" y="665" width="250" height="40" rx="10" fill="#18212e" stroke="#91a2b6" stroke-dasharray="5 4"/>
+    <text x="1180" y="682" class="small" fill="#d0dbe7">Optional Neo4j fan-in / fan-out</text>
+    <text x="1180" y="698" class="tiny">After report; not merged into its context</text>
+  </g>
+  <path d="M1290 648 V665" class="edge-dashed"/>
+  <path d="M1415 685 H1430 V648 H1445" class="edge-dashed"/>
+  <text x="1422" y="674" class="tiny" fill="#c2cedb">if account_id</text>
+
+  <!-- Compliance RAG -->
+  <rect x="48" y="728" width="1824" height="112" rx="17" fill="#171526" stroke="#49376e" stroke-width="1"/>
+  <rect x="48" y="728" width="5" height="112" rx="2" fill="#ad91f1"/>
+  <text x="65" y="749" class="section" fill="#c3aaff">D  /  COMPLIANCE + DOCUMENT Q&amp;A</text>
+  <g class="node">
+    <rect x="65" y="758" width="230" height="68" rx="12" fill="#281d3e" stroke="#a987ed"/>
+    <text x="82" y="782" class="card-title">/compliance/query</text>
+    <text x="82" y="804" class="small">/rag/query | question + top_k</text>
+  </g>
+  <g class="node">
+    <rect x="325" y="758" width="250" height="68" rx="12" fill="#281d3e" stroke="#a987ed"/>
+    <text x="342" y="782" class="card-title">Query expansion</text>
+    <text x="342" y="804" class="small">Rule-based; up to four searches</text>
+  </g>
+  <g class="node">
+    <rect x="605" y="758" width="250" height="68" rx="12" fill="#281d3e" stroke="#a987ed"/>
+    <text x="622" y="782" class="card-title">Similarity retrieval</text>
+    <text x="622" y="804" class="small">FAISS default; provider configurable</text>
+  </g>
+  <g class="node">
+    <rect x="885" y="758" width="250" height="68" rx="12" fill="#281d3e" stroke="#a987ed"/>
+    <text x="902" y="782" class="card-title">Filter + rerank</text>
+    <text x="902" y="803" class="small">Heuristics; cross-encoder or keywords</text>
+  </g>
+  <g class="node">
+    <rect x="1165" y="758" width="250" height="68" rx="12" fill="#281d3e" stroke="#a987ed"/>
+    <text x="1182" y="782" class="card-title">Grounded answer</text>
+    <text x="1182" y="803" class="small">LLM + lexical checks / fallback</text>
+  </g>
+  <g class="node">
+    <rect x="1445" y="758" width="380" height="68" rx="12" fill="#10253a" stroke="#40c6d6"/>
+    <text x="1463" y="782" class="card-title">Answer + evidence + sources</text>
+    <text x="1463" y="804" class="small">Grounded or explicit insufficient-evidence status</text>
+  </g>
+  <path d="M295 792 H325" class="edge-purple"/>
+  <path d="M575 792 H605" class="edge-purple"/>
+  <path d="M855 792 H885" class="edge-purple"/>
+  <path d="M1135 792 H1165" class="edge-purple"/>
+  <path d="M1415 792 H1445" class="edge-cyan"/>
+
+  <!-- Document ingestion -->
+  <rect x="48" y="848" width="1824" height="142" rx="17" fill="#171526" stroke="#49376e" stroke-width="1"/>
+  <rect x="48" y="848" width="5" height="142" rx="2" fill="#ad91f1"/>
+  <text x="65" y="869" class="section" fill="#c3aaff">E  /  DOCUMENT INGESTION (WRITE PATH)</text>
+  <g class="node">
+    <rect x="65" y="878" width="230" height="82" rx="12" fill="#281d3e" stroke="#a987ed"/>
+    <text x="82" y="902" class="card-title">POST /api/documents</text>
+    <text x="82" y="924" class="small">Multipart upload from dashboard</text>
+    <text x="82" y="943" class="tiny">Frontend advertises CSV / DOCX too</text>
+  </g>
+  <g class="node">
+    <rect x="325" y="878" width="250" height="82" rx="12" fill="#281d3e" stroke="#a987ed"/>
+    <text x="342" y="902" class="card-title">Save source file</text>
+    <text x="342" y="924" class="small">data/raw/uploads</text>
+    <text x="342" y="943" class="tiny">No SQL Document row is written</text>
+  </g>
+  <g class="node">
+    <rect x="605" y="878" width="250" height="82" rx="12" fill="#281d3e" stroke="#a987ed"/>
+    <text x="622" y="902" class="card-title">Parse + chunk</text>
+    <text x="622" y="924" class="small">PDF, XLS/XLSX, email, TXT/MD, HTML</text>
+    <text x="622" y="943" class="tiny">1,000 chars / 150 overlap by default</text>
+  </g>
+  <g class="node">
+    <rect x="885" y="878" width="250" height="82" rx="12" fill="#281d3e" stroke="#a987ed"/>
+    <text x="902" y="902" class="card-title">Create embeddings</text>
+    <text x="902" y="924" class="small">Hugging Face default model</text>
+    <text x="902" y="943" class="tiny">OpenAI embeddings optional</text>
+  </g>
+  <g class="node">
+    <rect x="1165" y="878" width="250" height="82" rx="12" fill="#281d3e" stroke="#a987ed"/>
+    <text x="1182" y="902" class="card-title">Index chunks</text>
+    <text x="1182" y="924" class="small">Configured vector-store adapter</text>
+    <text x="1182" y="943" class="tiny">FAISS default | Chroma/Milvus/Pinecone adapters</text>
+  </g>
+  <g class="node">
+    <rect x="1445" y="878" width="380" height="82" rx="12" fill="#0f302e" stroke="#4dd8b2"/>
+    <text x="1463" y="902" class="card-title">Vector index for later retrieval</text>
+    <text x="1463" y="924" class="small">Reusable when provider and index settings match</text>
+    <text x="1463" y="943" class="tiny">Upload status and chunk count return to the UI</text>
+  </g>
+  <path d="M295 919 H325" class="edge-purple"/>
+  <path d="M575 919 H605" class="edge-purple"/>
+  <path d="M855 919 H885" class="edge-purple"/>
+  <path d="M1135 919 H1165" class="edge-purple"/>
+  <path d="M1415 919 H1445" class="edge-teal"/>
+  <path d="M1635 878 V852 H730 V826" class="edge-dashed"/>
+  <text x="1160" y="849" class="tiny" fill="#c8b7ff">indexed chunks feed configured retrieval</text>
+
+  <path d="M60 1005 H1860" stroke="#23374d" stroke-width="1"/>
+  <text x="60" y="1030" class="small">
+    <tspan fill="#f3b35a" font-weight="700">NOT ACTIVE / UNVERIFIED AS ACTIVE WORKFLOWS:</tspan>
+    <tspan> LangGraph orchestration, full Graph RAG fusion, AML prediction, customer-analytics prediction, Redis caching.</tspan>
+  </text>
+  <text x="60" y="1055" class="tiny">Vector selectors differ by path: upload/Q&amp;A use VECTOR_DB_PROVIDER; investigation uses RAG_VECTOR_BACKEND (FAISS/Pinecone). Align them to share an index.</text>
+  <text x="1860" y="1055" text-anchor="end" class="tiny">Source verified only; not launched for end-to-end runtime verification.</text>
+</svg>
