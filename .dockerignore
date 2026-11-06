@@ -11,4 +11,8 @@ htmlcov
 node_modules
 frontend/node_modules
 vector_store/
-*.ipynb
+*.ipynb\n# Never send local datasets or local environment files to the Docker build context
+data/
+.env
+.env.*
+frontend/dist/
