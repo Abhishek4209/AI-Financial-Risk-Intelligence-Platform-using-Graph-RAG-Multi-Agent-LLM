@@ -50,6 +50,14 @@ def create_app() -> FastAPI:
         return ReadyResponse(status="ready", dependencies=dependencies)
 
     app.include_router(api_router)
+
+    @app.on_event("startup")
+    def initialize_database_schema() -> None:
+        """Create the operational tables on first deploy when the managed DB is empty."""
+        from src.database.postgres import init_db
+
+        init_db()
+
     return app
 
 
