@@ -92,10 +92,8 @@ def seed_demo(session):
     ))
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--demo", action="store_true", help="Insert clearly marked synthetic development re
-cords")
-    parser.add_argument("--database-url", default=os.getenv("DATABASE_URL"), help="Defaults to DATABASE_U
-RL")
+    parser.add_argument("--demo", action="store_true", help="Insert clearly marked synthetic development records")
+    parser.add_argument("--database-url", default=os.getenv("DATABASE_URL"), help="Defaults to DATABASE_URL")
     args = parser.parse_args()
     if not args.database_url:
         parser.error("Set DATABASE_URL or pass --database-url")
