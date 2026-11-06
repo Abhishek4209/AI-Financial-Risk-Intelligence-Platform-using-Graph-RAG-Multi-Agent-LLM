@@ -24,9 +24,11 @@ RUN python -m pip install --upgrade pip \
 
 COPY src ./src
 COPY configs ./configs
-COPY data ./data
 COPY models ./models
 
+# Local datasets are excluded from the Docker build context.
+# Keep the expected directories available; production data should be
+# provided through managed storage or an explicitly configured volume.
 RUN mkdir -p /app/logs /app/data/raw /app/data/processed /app/models
 
 EXPOSE 8000
